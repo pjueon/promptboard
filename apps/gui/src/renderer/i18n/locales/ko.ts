@@ -1,0 +1,62 @@
+export default {
+  toolbar: {
+    tools: {
+      pen: '펜',
+      select: '선택',
+      eraser: '지우개',
+      line: '직선',
+      rectangle: '사각형',
+      circle: '원',
+      text: '텍스트',
+    },
+    color: '색상',
+    width: '두께',
+    font: '글꼴',
+    clear: '전체 지우기',
+    settings: '설정',
+  },
+  sidebar: {
+    tabs: {
+      settings: '설정',
+      info: '정보',
+    },
+    settings: {
+      theme: '테마',
+      appearance: '외형',
+      language: '언어',
+      light: '라이트',
+      dark: '다크',
+      autoSave: '자동 저장',
+      autoSaveEnabled: '자동 저장 활성화',
+      autoSaveInterval: '저장 간격 (초)',
+      lastSaved: '마지막 저장',
+      never: '없음',
+    },
+    info: {
+      shortcuts: '키보드 단축키',
+      editing: '편집',
+      selectionClipboard: '선택 및 클립보드',
+      about: '정보',
+      version: '버전',
+      description: 'AI 에이전트를 위한 비주얼 컨텍스트 버퍼',
+      subtitle: 'MCP(Model Context Protocol)를 통해 AI와 시각적 컨텍스트 공유',
+    },
+    shortcuts: {
+      undo: '실행 취소',
+      redo: '다시 실행',
+      copy: '영역 복사',
+      paste: '이미지 붙여넣기',
+      delete: '선택 항목 삭제',
+      cancel: '취소 / 선택 해제',
+      or: 'or',
+    },
+  },
+  modal: {
+    clearAll: {
+      title: '전체 지우기',
+      message: '화이트보드의 모든 내용을 지우시겠습니까?',
+      confirm: '지우기',
+      cancel: '취소',
+    },
+  },
+};

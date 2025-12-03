@@ -172,3 +172,20 @@ docs/_book
 test/
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,node,vue
+
+#
+**/dist-renderer/
+**/dist-electron/
+**/release/
+
+# Test coverage
+coverage/
+.nyc_output
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
+.claude/
+CLAUDE.md

@@ -1,0 +1,62 @@
+export default {
+  toolbar: {
+    tools: {
+      pen: 'ペン',
+      select: '選択',
+      eraser: '消しゴム',
+      line: '直線',
+      rectangle: '四角形',
+      circle: '円',
+      text: 'テキスト',
+    },
+    color: '色',
+    width: '太さ',
+    font: 'フォント',
+    clear: 'すべてクリア',
+    settings: '設定',
+  },
+  sidebar: {
+    tabs: {
+      settings: '設定',
+      info: '情報',
+    },
+    settings: {
+      theme: 'テーマ',
+      appearance: '外観',
+      language: '言語',
+      light: 'ライト',
+      dark: 'ダーク',
+      autoSave: 'オートセーブ',
+      autoSaveEnabled: 'オートセーブを有効にする',
+      autoSaveInterval: '保存間隔（秒）',
+      lastSaved: '最終保存',
+      never: 'なし',
+    },
+    info: {
+      shortcuts: 'キーボードショートカット',
+      editing: '編集',
+      selectionClipboard: '選択とクリップボード',
+      about: '情報',
+      version: 'バージョン',
+      description: 'AIエージェント用ビジュアルコンテキストバッファ',
+      subtitle: 'MCP(Model Context Protocol)を通じてAIと視覚的コンテキストを共有',
+    },
+    shortcuts: {
+      undo: '元に戻す',
+      redo: 'やり直す',
+      copy: '領域をコピー',
+      paste: '画像を貼り付け',
+      delete: '選択項目を削除',
+      cancel: 'キャンセル / 選択解除',
+      or: 'or',
+    },
+  },
+  modal: {
+    clearAll: {
+      title: 'すべてクリア',
+      message: 'ホワイトボードのすべての内容をクリアしてもよろしいですか？',
+      confirm: 'クリア',
+      cancel: 'キャンセル',
+    },
+  },
+};

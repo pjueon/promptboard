@@ -1,0 +1,62 @@
+export default {
+  toolbar: {
+    tools: {
+      pen: 'Pen',
+      select: 'Select',
+      eraser: 'Eraser',
+      line: 'Line',
+      rectangle: 'Rectangle',
+      circle: 'Circle',
+      text: 'Text',
+    },
+    color: 'Color',
+    width: 'Width',
+    font: 'Font',
+    clear: 'Clear All',
+    settings: 'Settings',
+  },
+  sidebar: {
+    tabs: {
+      settings: 'Settings',
+      info: 'Info',
+    },
+    settings: {
+      theme: 'Theme',
+      appearance: 'Appearance',
+      language: 'Language',
+      light: 'Light',
+      dark: 'Dark',
+      autoSave: 'Auto-save',
+      autoSaveEnabled: 'Enable auto-save',
+      autoSaveInterval: 'Save interval (seconds)',
+      lastSaved: 'Last saved',
+      never: 'Never',
+    },
+    info: {
+      shortcuts: 'Keyboard Shortcuts',
+      editing: 'Editing',
+      selectionClipboard: 'Selection & Clipboard',
+      about: 'About',
+      version: 'Version',
+      description: 'Visual Context Buffer for AI Agents',
+      subtitle: 'Share visual context with AI through MCP (Model Context Protocol)',
+    },
+    shortcuts: {
+      undo: 'Undo',
+      redo: 'Redo',
+      copy: 'Copy region',
+      paste: 'Paste image',
+      delete: 'Delete selection',
+      cancel: 'Cancel / Deselect',
+      or: 'or',
+    },
+  },
+  modal: {
+    clearAll: {
+      title: 'Clear All',
+      message: 'Are you sure you want to clear the entire whiteboard?',
+      confirm: 'Clear',
+      cancel: 'Cancel',
+    },
+  },
+};
