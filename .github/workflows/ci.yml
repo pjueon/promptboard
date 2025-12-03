@@ -1,0 +1,73 @@
+# .github/workflows/ci.yml
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint-and-type-check:
+    name: "Lint & Type Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Run Lint
+        run: npm run lint
+        working-directory: ./apps/gui
+      - name: Run Type Check
+        run: npm run type-check
+        working-directory: ./apps/gui
+
+  unit-tests:
+    name: "Unit Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Run Unit Tests
+        run: npm run test:unit
+        working-directory: ./apps/gui
+
+  e2e-tests:
+    name: "E2E Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: npm install
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+        working-directory: ./apps/gui
+      - name: Build the application
+        run: npm run build
+        working-directory: ./apps/gui
+      - name: Run E2E Tests
+        run: npm run test:e2e
+        working-directory: ./apps/gui
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: apps/gui/playwright-report/
+          retention-days: 30
