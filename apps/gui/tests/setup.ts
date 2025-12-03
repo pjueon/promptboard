@@ -52,7 +52,7 @@ const mockIpcRenderer = {
   removeListener: vi.fn(),
 };
 
-// @ts-ignore
+// @ts-expect-error
 global.window.electron = {
   ipcRenderer: mockIpcRenderer,
 };

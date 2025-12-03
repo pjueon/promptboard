@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { WebSocketBridge } from './ws-bridge.js'
 import { loadSettings, saveSettings, type AppSettings } from './settings.js'
-import { loadWhiteboardState, saveWhiteboardState, deleteWhiteboardState } from './whiteboard-state.js'
+import { loadWhiteboardState, saveWhiteboardState, deleteWhiteboardState, type FabricCanvasData } from './whiteboard-state.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -23,13 +23,128 @@ const isMCPMode = wsPort !== null
 // Single Instance Lock
 const gotTheLock = app.requestSingleInstanceLock()
 
+let mainWindow: BrowserWindow | null = null
+let wsBridge: WebSocketBridge | null = null
+
+function createWindow() {
+  const windowConfig: Electron.BrowserWindowConstructorOptions = {
+    width: 1200,
+    height: 800,
+    frame: false,
+    transparent: false,
+    hasShadow: true,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
+      preload: path.join(__dirname, '../preload/index.mjs'),
+    },
+    title: 'Promptboard',
+    show: false,
+    backgroundColor: '#ffffff',
+  }
+  
+  
+  mainWindow = new BrowserWindow(windowConfig)
+
+  // Log window information after creation
+  mainWindow.webContents.on('did-finish-load', () => {
+    console.error('Window loaded successfully')
+    console.error('Window bounds:', mainWindow?.getBounds())
+  })
+
+  // Show window when ready
+  mainWindow.once('ready-to-show', () => {
+    if (mainWindow) {
+      mainWindow.show()
+    }
+  })
+
+  // Load content
+  const isDev = !app.isPackaged
+
+  if (isDev) {
+    const devServerPort = process.env.VITE_DEV_SERVER_PORT || '5555'
+    mainWindow.loadURL(`http://localhost:${devServerPort}`)
+
+    // Open DevTools only in Standalone mode
+    if (!isMCPMode && mainWindow.webContents) {
+      mainWindow.webContents.openDevTools()
+    }
+  } else {
+    // Production: load from built files
+    // vite-plugin-electron builds renderer in dist/ folder
+    const rendererPath = path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
+    mainWindow.loadFile(rendererPath)
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null
+    if (wsBridge) {
+      wsBridge.disconnect()
+      wsBridge = null
+    }
+  })
+}
+
+function setupIPCHandlers() {
+  // Window controls
+  ipcMain.handle('window:minimize', () => {
+    if (mainWindow) {
+      mainWindow.minimize()
+    }
+  })
+
+  ipcMain.handle('window:maximize', () => {
+    if (mainWindow) {
+      if (mainWindow.isMaximized()) {
+        mainWindow.unmaximize()
+      } else {
+        mainWindow.maximize()
+      }
+      return mainWindow.isMaximized()
+    }
+    return false
+  })
+
+  ipcMain.handle('window:close', () => {
+    if (mainWindow) {
+      mainWindow.close()
+    }
+  })
+
+  ipcMain.handle('window:is-maximized', () => {
+    return mainWindow?.isMaximized() || false
+  })
+
+  // Load settings
+  ipcMain.handle('settings:load', () => {
+    return loadSettings()
+  })
+
+  // Save settings
+  ipcMain.handle('settings:save', (_event, settings: AppSettings) => {
+    return saveSettings(settings)
+  })
+
+  // Whiteboard state management
+  ipcMain.handle('whiteboard:load-state', () => {
+    return loadWhiteboardState()
+  })
+
+  ipcMain.handle('whiteboard:save-state', (_event, canvasData: FabricCanvasData) => {
+    return saveWhiteboardState(canvasData)
+  })
+
+  ipcMain.handle('whiteboard:delete-state', () => {
+    return deleteWhiteboardState()
+  })
+}
+
 if (!gotTheLock) {
   // Another instance is already running → quit
   app.quit()
 } else {
-  let mainWindow: BrowserWindow | null = null
-  let wsBridge: WebSocketBridge | null = null
-
   // Detect second instance attempt
   app.on('second-instance', () => {
     // Focus existing window
@@ -40,67 +155,6 @@ if (!gotTheLock) {
       mainWindow.focus()
     }
   })
-
-  function createWindow() {
-    const windowConfig: Electron.BrowserWindowConstructorOptions = {
-      width: 1200,
-      height: 800,
-      frame: false,
-      transparent: false,
-      hasShadow: true,
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        sandbox: false,
-        preload: path.join(__dirname, '../preload/index.mjs'),
-      },
-      title: 'Promptboard',
-      show: false,
-      backgroundColor: '#ffffff',
-    }
-    
-    
-    mainWindow = new BrowserWindow(windowConfig)
-
-    // Log window information after creation
-    mainWindow.webContents.on('did-finish-load', () => {
-      console.error('Window loaded successfully')
-      console.error('Window bounds:', mainWindow?.getBounds())
-    })
-
-    // Show window when ready
-    mainWindow.once('ready-to-show', () => {
-      if (mainWindow) {
-        mainWindow.show()
-      }
-    })
-
-    // Load content
-    const isDev = !app.isPackaged
-
-    if (isDev) {
-      const devServerPort = process.env.VITE_DEV_SERVER_PORT || '5555'
-      mainWindow.loadURL(`http://localhost:${devServerPort}`)
-
-      // Open DevTools only in Standalone mode
-      if (!isMCPMode && mainWindow.webContents) {
-        mainWindow.webContents.openDevTools()
-      }
-    } else {
-      // Production: load from built files
-      // vite-plugin-electron builds renderer in dist/ folder
-      const rendererPath = path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
-      mainWindow.loadFile(rendererPath)
-    }
-
-    mainWindow.on('closed', () => {
-      mainWindow = null
-      if (wsBridge) {
-        wsBridge.disconnect()
-        wsBridge = null
-      }
-    })
-  }
 
   app.whenReady().then(async () => {
     // Setup IPC handlers
@@ -121,60 +175,6 @@ if (!gotTheLock) {
       }
     }
   })
-
-  function setupIPCHandlers() {
-    // Window controls
-    ipcMain.handle('window:minimize', () => {
-      if (mainWindow) {
-        mainWindow.minimize()
-      }
-    })
-
-    ipcMain.handle('window:maximize', () => {
-      if (mainWindow) {
-        if (mainWindow.isMaximized()) {
-          mainWindow.unmaximize()
-        } else {
-          mainWindow.maximize()
-        }
-        return mainWindow.isMaximized()
-      }
-      return false
-    })
-
-    ipcMain.handle('window:close', () => {
-      if (mainWindow) {
-        mainWindow.close()
-      }
-    })
-
-    ipcMain.handle('window:is-maximized', () => {
-      return mainWindow?.isMaximized() || false
-    })
-
-    // Load settings
-    ipcMain.handle('settings:load', () => {
-      return loadSettings()
-    })
-
-    // Save settings
-    ipcMain.handle('settings:save', (_event, settings: AppSettings) => {
-      return saveSettings(settings)
-    })
-
-    // Whiteboard state management
-    ipcMain.handle('whiteboard:load-state', () => {
-      return loadWhiteboardState()
-    })
-
-    ipcMain.handle('whiteboard:save-state', (_event, canvasData: any) => {
-      return saveWhiteboardState(canvasData)
-    })
-
-    ipcMain.handle('whiteboard:delete-state', () => {
-      return deleteWhiteboardState()
-    })
-  }
 
   app.on('window-all-closed', () => {
     // Quit app on non-macOS platforms

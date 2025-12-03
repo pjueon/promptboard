@@ -58,7 +58,7 @@ export const useAutoSaveStore = defineStore('autoSave', () => {
     }
   }
 
-  async function saveWhiteboardState(canvasData: any): Promise<boolean> {
+  async function saveWhiteboardState(canvasData: object): Promise<boolean> {
     if (!isElectron) {
       return false;
     }

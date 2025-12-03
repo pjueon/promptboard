@@ -5,17 +5,13 @@
  */
 
 // Prevent stdout pollution - redirect all logs to stderr
-const originalLog = console.log
-const originalWarn = console.warn
-const originalInfo = console.info
-
-console.log = (...args: any[]) => console.error('[LOG]', ...args)
-console.warn = (...args: any[]) => console.error('[WARN]', ...args)
-console.info = (...args: any[]) => console.error('[INFO]', ...args)
+console.log = (...args: unknown[]) => console.error('[LOG]', ...args)
+console.warn = (...args: unknown[]) => console.error('[WARN]', ...args)
+console.info = (...args: unknown[]) => console.error('[INFO]', ...args)
 
 // Debug log helper (controlled by environment variable)
 const DEBUG = process.env.MCP_DEBUG === 'true'
-const debugLog = (...args: any[]) => {
+const debugLog = (...args: unknown[]) => {
   if (DEBUG) {
     console.error('[DEBUG]', ...args)
   }
@@ -127,8 +123,18 @@ function startGUI() {
   })
 }
 
+
+interface GuiMessage {
+  action: string;
+  id?: number;
+}
+
+interface GuiResponse {
+  image?: string;
+}
+
 // Send message to GUI
-function sendToGUI(message: { action: string; id?: number }): Promise<any> {
+function sendToGUI(message: GuiMessage): Promise<GuiResponse> {
   return new Promise((resolve, reject) => {
     if (!wsClient) {
       reject(new Error('GUI not connected'))
@@ -199,7 +205,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // Tool call handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params
+  const { name } = request.params
 
   try {
     if (name === 'open_whiteboard') {

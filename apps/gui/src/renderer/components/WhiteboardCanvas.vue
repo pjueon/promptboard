@@ -1,19 +1,26 @@
 <template>
   <div class="whiteboard-container">
-    <canvas ref="canvasEl" id="whiteboard-canvas"></canvas>
+    <canvas
+      id="whiteboard-canvas"
+      ref="canvasEl"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { fabric } from 'fabric';
 import { useToolbarStore } from '../stores/toolbarStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useToastStore } from '../stores/toastStore';
 import { useAutoSaveStore } from '../stores/autoSaveStore';
 
+interface FabricCanvasElement extends HTMLCanvasElement {
+  fabric?: fabric.Canvas;
+}
+
 // Canvas element reference
-const canvasEl = ref<HTMLCanvasElement | null>(null);
+const canvasEl = ref<FabricCanvasElement | null>(null);
 
 // Fabric.js canvas instance
 let fabricCanvas: fabric.Canvas | null = null;
@@ -28,9 +35,9 @@ let startY = 0;
 let selectionRect: fabric.Rect | null = null;
 
 // Mouse event handlers for shape drawing
-let mouseDownHandler: ((e: any) => void) | null = null;
-let mouseMoveHandler: ((e: any) => void) | null = null;
-let mouseUpHandler: ((e: any) => void) | null = null;
+let mouseDownHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
+let mouseMoveHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
+let mouseUpHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
 
 // Get stores
 const toolbarStore = useToolbarStore();
@@ -129,11 +136,10 @@ function cleanupShapeEvents() {
  */
 function setupLineTool() {
   if (!fabricCanvas) return;
-  
+
   cleanupShapeEvents();
-  
-  mouseDownHandler = (e: any) => {
-    isDrawing = true;
+
+  mouseDownHandler = (e: fabric.IEvent) => {    isDrawing = true;
     const pointer = e.pointer;
     startX = pointer.x;
     startY = pointer.y;
@@ -154,7 +160,7 @@ function setupLineTool() {
     fabricCanvas!.add(currentShape);
   };
   
-  mouseMoveHandler = (e: any) => {
+mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
@@ -207,7 +213,7 @@ function setupRectangleTool() {
   
   cleanupShapeEvents();
   
-  mouseDownHandler = (e: any) => {
+  mouseDownHandler = (e: fabric.IEvent) => {
     isDrawing = true;
     const pointer = e.pointer;
     startX = pointer.x;
@@ -233,7 +239,7 @@ function setupRectangleTool() {
     fabricCanvas!.add(currentShape);
   };
   
-  mouseMoveHandler = (e: any) => {
+mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
@@ -294,7 +300,7 @@ function setupCircleTool() {
   
   cleanupShapeEvents();
   
-  mouseDownHandler = (e: any) => {
+  mouseDownHandler = (e: fabric.IEvent) => {
     isDrawing = true;
     const pointer = e.pointer;
     startX = pointer.x;
@@ -321,7 +327,7 @@ function setupCircleTool() {
     fabricCanvas!.add(currentShape);
   };
   
-  mouseMoveHandler = (e: any) => {
+  mouseMoveHandler =  (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
@@ -377,10 +383,9 @@ function setupCircleTool() {
 function setupTextTool() {
   if (!fabricCanvas) return;
   
-  cleanupShapeEvents();
+    cleanupShapeEvents();
   
-  mouseDownHandler = (e: any) => {
-    const pointer = e.pointer;
+    mouseDownHandler = (e: fabric.IEvent) => {    const pointer = e.pointer;
     
     const text = new fabric.IText('', {
       left: pointer.x,
@@ -442,7 +447,7 @@ function setupRegionSelectTool() {
   // Enable object selection initially
   fabricCanvas.selection = true;
   
-  mouseDownHandler = (e: any) => {
+  mouseDownHandler = (e: fabric.IEvent) => {
     // Check if clicking on an existing object
     const target = e.target;
     if (target && target !== fabricCanvas) {
@@ -483,7 +488,7 @@ function setupRegionSelectTool() {
     fabricCanvas!.add(selectionRect);
   };
   
-  mouseMoveHandler = (e: any) => {
+mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !selectionRect) return;
     
     const pointer = e.pointer;
@@ -873,7 +878,7 @@ onMounted(() => {
   });
 
   // Store fabricCanvas reference on canvas element for main process access
-  (canvasEl.value as any).fabric = fabricCanvas;
+  canvasEl.value.fabric = fabricCanvas;
   
   // Override default cursor handler to set rotation cursor (only in non-test environment)
   // Using Lucide RotateCw icon as SVG cursor
@@ -890,13 +895,13 @@ onMounted(() => {
   // Set willReadFrequently on Fabric.js internal canvases to suppress warnings
   // This is needed because Fabric.js reads pixel data frequently for hit detection
   try {
-    const lowerCanvas = (fabricCanvas as any).lowerCanvasEl;
-    const upperCanvas = (fabricCanvas as any).upperCanvasEl;
+    const lowerCanvas = fabricCanvas.lowerCanvasEl;
+    const upperCanvas = fabricCanvas.upperCanvasEl;
     if (lowerCanvas) {
-      const ctx = lowerCanvas.getContext('2d', { willReadFrequently: true });
+      lowerCanvas.getContext('2d', { willReadFrequently: true });
     }
     if (upperCanvas) {
-      const ctx = upperCanvas.getContext('2d', { willReadFrequently: true });
+      upperCanvas.getContext('2d', { willReadFrequently: true });
     }
   } catch (e) {
     // Ignore if context already created
@@ -915,7 +920,7 @@ onMounted(() => {
   updateCanvasCursor();
   
   // Register selection:cleared event for flatten on deselect
-  fabricCanvas.on('selection:cleared', (e: any) => {
+fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
       // Flatten entire canvas to background
@@ -927,9 +932,9 @@ onMounted(() => {
       }, 100); // Wait for background image to load
     }
   });
-  
+
   // Register path:created event for pen and eraser tool - flatten immediately
-  fabricCanvas.on('path:created', (e: any) => {
+  fabricCanvas.on('path:created', () => {
     // Flatten strokes immediately (no selection) and save snapshot after completion
     setTimeout(() => {
       flattenCanvasToBackground(() => {

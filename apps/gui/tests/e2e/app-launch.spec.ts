@@ -13,7 +13,7 @@ test.describe('Electron App Launch', () => {
   test('should launch electron app', async () => {
     // Start Electron app
     const electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../dist-electron/main/index.js')],
+      args: [path.join(__dirname, '../../dist-electron/main/index.mjs')],
     });
 
     // Wait for the first window
@@ -32,11 +32,12 @@ test.describe('Electron App Launch', () => {
 
   test('should have correct window dimensions', async () => {
     const electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../dist-electron/main/index.js')],
+      args: [path.join(__dirname, '../../dist-electron/main/index.mjs')],
     });
 
-    const window = await electronApp.firstWindow();
-    
+        
+
+        await electronApp.firstWindow();    
     // Check dimensions using BrowserWindow's getBounds()
     const bounds = await electronApp.evaluate(({ BrowserWindow }) => {
       const windows = BrowserWindow.getAllWindows();

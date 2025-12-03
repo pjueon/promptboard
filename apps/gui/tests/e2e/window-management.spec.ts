@@ -21,7 +21,7 @@ test.describe('Window Management', () => {
 
   test.beforeEach(async () => {
     electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../dist-electron/main/index.js')],
+      args: [path.join(__dirname, '../../dist-electron/main/index.mjs')],
     });
 
     window = await electronApp.firstWindow();
@@ -160,7 +160,7 @@ test.describe('Window Management', () => {
   test.describe('Window Lifecycle', () => {
     test('should clean up when window is closed', async () => {
       // Check if window exists
-      let windowCount = await electronApp.evaluate(({ BrowserWindow }) => {
+      const windowCount = await electronApp.evaluate(({ BrowserWindow }) => {
         return BrowserWindow.getAllWindows().length;
       });
 

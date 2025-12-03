@@ -1,10 +1,13 @@
 <template>
   <div 
     :class="['sidebar', { closed: !isOpen }]"
-    @keydown.esc="handleClose"
     tabindex="0"
+    @keydown.esc="handleClose"
   >
-    <div v-if="isOpen" class="sidebar-content">
+    <div
+      v-if="isOpen"
+      class="sidebar-content"
+    >
       <div class="sidebar-header">
         <div class="tabs">
           <button
@@ -13,17 +16,30 @@
             :class="['tab', { active: activeTab === tab.id }]"
             @click="activeTab = tab.id"
           >
-            <component :is="tab.icon" :size="16" :stroke-width="2" />
+            <component
+              :is="tab.icon"
+              :size="16"
+              :stroke-width="2"
+            />
             <span>{{ tab.label() }}</span>
           </button>
         </div>
-        <button class="close-button" @click="handleClose">
-          <X :size="20" :stroke-width="2" />
+        <button
+          class="close-button"
+          @click="handleClose"
+        >
+          <X
+            :size="20"
+            :stroke-width="2"
+          />
         </button>
       </div>
 
       <div class="tab-content">
-        <div v-if="activeTab === 'settings'" class="settings-content">
+        <div
+          v-if="activeTab === 'settings'"
+          class="settings-content"
+        >
           <h3>{{ t('sidebar.settings.theme') }}</h3>
           
           <div class="setting-group">
@@ -33,14 +49,20 @@
                 :class="['theme-option', { active: !themeStore.isDark }]"
                 @click="themeStore.setTheme('light')"
               >
-                <Sun :size="20" :stroke-width="2" />
+                <Sun
+                  :size="20"
+                  :stroke-width="2"
+                />
                 <span>{{ t('sidebar.settings.light') }}</span>
               </button>
               <button
                 :class="['theme-option', { active: themeStore.isDark }]"
                 @click="themeStore.setTheme('dark')"
               >
-                <Moon :size="20" :stroke-width="2" />
+                <Moon
+                  :size="20"
+                  :stroke-width="2"
+                />
                 <span>{{ t('sidebar.settings.dark') }}</span>
               </button>
             </div>
@@ -71,30 +93,39 @@
                 type="checkbox"
                 :checked="autoSaveStore.autoSave"
                 @change="(e) => autoSaveStore.setAutoSave((e.target as HTMLInputElement).checked)"
-              />
+              >
               <span>{{ t('sidebar.settings.autoSaveEnabled') }}</span>
             </label>
           </div>
 
-          <div v-if="autoSaveStore.autoSave" class="setting-group">
+          <div
+            v-if="autoSaveStore.autoSave"
+            class="setting-group"
+          >
             <label class="setting-label">{{ t('sidebar.settings.autoSaveInterval') }}</label>
             <input
               type="number"
               class="interval-input"
               :value="autoSaveStore.autoSaveInterval"
-              @change="(e) => autoSaveStore.setAutoSaveInterval(Number((e.target as HTMLInputElement).value))"
               min="10"
               step="5"
-            />
+              @change="(e) => autoSaveStore.setAutoSaveInterval(Number((e.target as HTMLInputElement).value))"
+            >
           </div>
 
-          <div v-if="autoSaveStore.lastSaved" class="setting-group">
+          <div
+            v-if="autoSaveStore.lastSaved"
+            class="setting-group"
+          >
             <label class="setting-label">{{ t('sidebar.settings.lastSaved') }}</label>
             <div class="last-saved-time">
               {{ formatLastSaved(autoSaveStore.lastSaved) }}
             </div>
           </div>
-          <div v-else class="setting-group">
+          <div
+            v-else
+            class="setting-group"
+          >
             <label class="setting-label">{{ t('sidebar.settings.lastSaved') }}</label>
             <div class="last-saved-time">
               {{ t('sidebar.settings.never') }}
@@ -102,7 +133,10 @@
           </div>
         </div>
 
-        <div v-if="activeTab === 'info'" class="info-content">
+        <div
+          v-if="activeTab === 'info'"
+          class="info-content"
+        >
           <h3>{{ t('sidebar.info.shortcuts') }}</h3>
           
           <div class="shortcut-category">
@@ -165,16 +199,12 @@ import { useLocaleStore } from '../stores/localeStore';
 import { useAutoSaveStore } from '../stores/autoSaveStore';
 import { useI18n } from 'vue-i18n';
 
-interface Props {
-  isOpen?: boolean;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  isOpen: false
-});
-
 const emit = defineEmits<{
   close: [];
+}>();
+
+defineProps<{
+  isOpen?: boolean;
 }>();
 
 const activeTab = ref<'settings' | 'info'>('settings');

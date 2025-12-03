@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import Sidebar from '../../src/renderer/components/Sidebar.vue';
+import AppSidebar from '../../src/renderer/components/AppSidebar.vue';
 import { createPinia, setActivePinia } from 'pinia';
 
 describe('Sidebar Component', () => {
@@ -10,14 +10,14 @@ describe('Sidebar Component', () => {
 
   describe('Sidebar State', () => {
     it('should be closed by default', () => {
-      const wrapper = mount(Sidebar);
+      const wrapper = mount(AppSidebar);
       
       expect(wrapper.find('.sidebar').classes()).toContain('closed');
       expect(wrapper.find('.sidebar').isVisible()).toBe(true);
     });
 
     it('should open when isOpen prop is true', () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -28,7 +28,7 @@ describe('Sidebar Component', () => {
     });
 
     it('should close when isOpen prop is false', () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: false
         }
@@ -38,7 +38,7 @@ describe('Sidebar Component', () => {
     });
 
     it('should emit close event when close button is clicked', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -53,7 +53,7 @@ describe('Sidebar Component', () => {
 
   describe('Tab Navigation', () => {
     it('should show Settings tab by default', () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -64,7 +64,7 @@ describe('Sidebar Component', () => {
     });
 
     it('should switch to Info tab when clicked', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -78,7 +78,7 @@ describe('Sidebar Component', () => {
     });
 
     it('should switch back to Settings tab when clicked', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -93,7 +93,7 @@ describe('Sidebar Component', () => {
     });
 
     it('should maintain tab state when sidebar is closed and reopened', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -117,7 +117,7 @@ describe('Sidebar Component', () => {
 
   describe('Keyboard Navigation', () => {
     it('should close when Escape key is pressed', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }

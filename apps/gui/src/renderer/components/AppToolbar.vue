@@ -9,7 +9,11 @@
         :title="tool.label()"
         @click="handleToolChange(tool.id)"
       >
-        <component :is="tool.icon" :size="20" :stroke-width="2" />
+        <component
+          :is="tool.icon"
+          :size="20"
+          :stroke-width="2"
+        />
       </button>
     </div>
 
@@ -19,9 +23,9 @@
       <input 
         type="color" 
         :value="color" 
-        @input="handleColorChange"
         class="color-picker"
-      />
+        @input="handleColorChange"
+      >
     </div>
 
     <!-- Stroke Width Slider -->
@@ -32,22 +36,25 @@
         min="1" 
         max="20" 
         :value="strokeWidth" 
-        @input="handleStrokeWidthChange"
         class="stroke-slider"
-      />
+        @input="handleStrokeWidthChange"
+      >
     </div>
 
     <!-- Font Size Slider (only visible when text tool is active) -->
-    <div v-if="currentTool === 'text'" class="tool-group">
+    <div
+      v-if="currentTool === 'text'"
+      class="tool-group"
+    >
       <label class="tool-label">{{ t('toolbar.font') }}: {{ fontSize }}px</label>
       <input 
         type="range" 
         min="12" 
         max="72" 
         :value="fontSize" 
-        @input="handleFontSizeChange"
         class="font-slider"
-      />
+        @input="handleFontSizeChange"
+      >
     </div>
 
     <!-- Clear All Button -->
@@ -57,7 +64,10 @@
         :title="t('toolbar.clear')"
         @click="handleClearClick"
       >
-        <Trash2 :size="20" :stroke-width="2" />
+        <Trash2
+          :size="20"
+          :stroke-width="2"
+        />
       </button>
       
       <button 
@@ -65,13 +75,16 @@
         :title="t('toolbar.settings')"
         @click="handleSidebarToggle"
       >
-        <Settings :size="20" :stroke-width="2" />
+        <Settings
+          :size="20"
+          :stroke-width="2"
+        />
       </button>
     </div>
 
     <!-- Confirm Modal -->
     <ConfirmModal
-      :isOpen="showClearModal"
+      :is-open="showClearModal"
       :title="t('modal.clearAll.title')"
       :message="t('modal.clearAll.message')"
       @confirm="handleClearConfirm"
@@ -83,7 +96,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useToolbarStore, type Tool } from '../stores/toolbarStore';
-import { useToastStore } from '../stores/toastStore';
 import { useI18n } from 'vue-i18n';
 import ConfirmModal from './ConfirmModal.vue';
 import { 
@@ -99,7 +111,6 @@ import {
 } from 'lucide-vue-next';
 
 const toolbarStore = useToolbarStore();
-const toastStore = useToastStore();
 const { t } = useI18n();
 
 // Computed properties from store

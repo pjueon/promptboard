@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { mount } from '@vue/test-utils';
-import Sidebar from '../../src/renderer/components/Sidebar.vue';
+import AppSidebar from '../../src/renderer/components/AppSidebar.vue';
 import { createPinia, setActivePinia } from 'pinia';
 
 describe('Shortcut Info in Sidebar', () => {
@@ -10,7 +10,7 @@ describe('Shortcut Info in Sidebar', () => {
 
   describe('Info Tab Content', () => {
     it('should display keyboard shortcuts section', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -26,7 +26,7 @@ describe('Shortcut Info in Sidebar', () => {
     });
 
     it('should display undo shortcut (Ctrl+Z)', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -43,7 +43,7 @@ describe('Shortcut Info in Sidebar', () => {
     });
 
     it('should display redo shortcuts (Ctrl+Shift+Z, Ctrl+Y)', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -61,7 +61,7 @@ describe('Shortcut Info in Sidebar', () => {
     });
 
     it('should display copy shortcut (Ctrl+C)', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -78,7 +78,7 @@ describe('Shortcut Info in Sidebar', () => {
     });
 
     it('should display paste shortcut (Ctrl+V)', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -95,7 +95,7 @@ describe('Shortcut Info in Sidebar', () => {
     });
 
     it('should display delete shortcut (Delete)', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -112,7 +112,7 @@ describe('Shortcut Info in Sidebar', () => {
     });
 
     it('should display escape shortcut (ESC)', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -129,7 +129,7 @@ describe('Shortcut Info in Sidebar', () => {
     });
 
     it('should group shortcuts by category', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }
@@ -147,7 +147,7 @@ describe('Shortcut Info in Sidebar', () => {
     });
 
     it('should display app version information', async () => {
-      const wrapper = mount(Sidebar, {
+      const wrapper = mount(AppSidebar, {
         props: {
           isOpen: true
         }

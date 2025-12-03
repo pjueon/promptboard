@@ -1,13 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import Toolbar from '../../src/renderer/components/Toolbar.vue';
+import AppToolbar from '../../src/renderer/components/AppToolbar.vue';
 import ConfirmModal from '../../src/renderer/components/ConfirmModal.vue';
 import { useToolbarStore } from '../../src/renderer/stores/toolbarStore';
 
 describe('Toolbar Component', () => {
-  let wrapper: any;
-  let store: any;
+  let wrapper: VueWrapper<any>;
+  let store: ReturnType<typeof useToolbarStore>;
 
   beforeEach(() => {
     // Create fresh pinia instance
@@ -16,7 +16,7 @@ describe('Toolbar Component', () => {
     store = useToolbarStore();
 
     // Mount component
-    wrapper = mount(Toolbar, {
+    wrapper = mount(AppToolbar, {
       global: {
         plugins: [pinia],
         components: {
@@ -106,7 +106,7 @@ describe('Toolbar Component', () => {
       await wrapper.vm.$nextTick();
       
       const colorPicker = wrapper.find('.color-picker');
-      expect(colorPicker.element.value).toBe('#0000ff');
+      expect((colorPicker.element as HTMLInputElement).value).toBe('#0000ff');
     });
 
     it('should update displayed color when store changes', async () => {
@@ -115,7 +115,7 @@ describe('Toolbar Component', () => {
       store.setColor('#00ff00');
       await wrapper.vm.$nextTick();
       
-      expect(colorPicker.element.value).toBe('#00ff00');
+      expect((colorPicker.element as HTMLInputElement).value).toBe('#00ff00');
     });
   });
 
@@ -134,7 +134,7 @@ describe('Toolbar Component', () => {
       await wrapper.vm.$nextTick();
       
       const slider = wrapper.find('.stroke-slider');
-      expect(slider.element.value).toBe('10');
+      expect((slider.element as HTMLInputElement).value).toBe('10');
     });
 
     it('should display width value in label', async () => {
@@ -142,8 +142,8 @@ describe('Toolbar Component', () => {
       await wrapper.vm.$nextTick();
       
       const labels = wrapper.findAll('.tool-label');
-      const widthLabel = labels.find((l: any) => l.text().includes('Width:'));
-      expect(widthLabel.text()).toContain('5px');
+      const widthLabel = labels.find((l) => l.text().includes('Width:'));
+      expect(widthLabel!.text()).toContain('5px');
     });
 
     it('should update label when slider changes', async () => {
@@ -152,8 +152,8 @@ describe('Toolbar Component', () => {
       await wrapper.vm.$nextTick();
       
       const labels = wrapper.findAll('.tool-label');
-      const widthLabel = labels.find((l: any) => l.text().includes('px'));
-      expect(widthLabel.text()).toContain('15px');
+      const widthLabel = labels.find((l) => l.text().includes('px'));
+      expect(widthLabel!.text()).toContain('15px');
     });
   });
 
@@ -272,7 +272,7 @@ describe('Toolbar Component', () => {
       await wrapper.vm.$nextTick();
       
       const fontSlider = wrapper.find('.font-slider');
-      expect(fontSlider.element.value).toBe('24');
+      expect((fontSlider.element as HTMLInputElement).value).toBe('24');
     });
 
     it('should display font size value in label', async () => {
@@ -281,8 +281,8 @@ describe('Toolbar Component', () => {
       await wrapper.vm.$nextTick();
       
       const labels = wrapper.findAll('.tool-label');
-      const fontLabel = labels.find((l: any) => l.text().includes('Font:'));
-      expect(fontLabel.text()).toContain('48px');
+      const fontLabel = labels.find((l) => l.text().includes('Font:'));
+      expect(fontLabel!.text()).toContain('48px');
     });
 
     it('should have correct slider range', async () => {

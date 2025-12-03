@@ -8,14 +8,38 @@
         @click="removeToast(toast.id)"
       >
         <div class="toast-icon">
-          <CheckCircle v-if="toast.type === 'success'" :size="20" :stroke-width="2" />
-          <XCircle v-else-if="toast.type === 'error'" :size="20" :stroke-width="2" />
-          <AlertCircle v-else-if="toast.type === 'warning'" :size="20" :stroke-width="2" />
-          <Info v-else :size="20" :stroke-width="2" />
+          <CheckCircle
+            v-if="toast.type === 'success'"
+            :size="20"
+            :stroke-width="2"
+          />
+          <XCircle
+            v-else-if="toast.type === 'error'"
+            :size="20"
+            :stroke-width="2"
+          />
+          <AlertCircle
+            v-else-if="toast.type === 'warning'"
+            :size="20"
+            :stroke-width="2"
+          />
+          <Info
+            v-else
+            :size="20"
+            :stroke-width="2"
+          />
         </div>
-        <div class="toast-message">{{ toast.message }}</div>
-        <button class="toast-close" @click.stop="removeToast(toast.id)">
-          <X :size="16" :stroke-width="2" />
+        <div class="toast-message">
+          {{ toast.message }}
+        </div>
+        <button
+          class="toast-close"
+          @click.stop="removeToast(toast.id)"
+        >
+          <X
+            :size="16"
+            :stroke-width="2"
+          />
         </button>
       </div>
     </TransitionGroup>

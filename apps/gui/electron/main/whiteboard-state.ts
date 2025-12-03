@@ -2,9 +2,12 @@ import fs from 'fs';
 import path from 'path';
 import { app } from 'electron';
 
+
+export type FabricCanvasData = unknown;
+
 export interface WhiteboardState {
   version: string;
-  canvasData: any; // Fabric.js JSON data
+  canvasData: FabricCanvasData; // Fabric.js JSON data
   savedAt: string; // ISO timestamp
 }
 
@@ -52,7 +55,7 @@ export function loadWhiteboardState(): WhiteboardState | null {
 /**
  * Save whiteboard state to file
  */
-export function saveWhiteboardState(canvasData: any): boolean {
+export function saveWhiteboardState(canvasData: FabricCanvasData): boolean {
   const statePath = getWhiteboardStatePath();
 
   try {

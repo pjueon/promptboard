@@ -1,11 +1,32 @@
 <template>
-  <div v-if="isOpen" class="modal-overlay" @click="handleOverlayClick">
-    <div class="modal-content" @click.stop>
-      <h2 class="modal-title">{{ title }}</h2>
-      <p class="modal-message">{{ message }}</p>
+  <div
+    v-if="isOpen"
+    class="modal-overlay"
+    @click="handleOverlayClick"
+  >
+    <div
+      class="modal-content"
+      @click.stop
+    >
+      <h2 class="modal-title">
+        {{ title }}
+      </h2>
+      <p class="modal-message">
+        {{ message }}
+      </p>
       <div class="modal-actions">
-        <button class="btn-cancel" @click="handleCancel">Cancel</button>
-        <button class="btn-confirm" @click="handleConfirm">Confirm</button>
+        <button
+          class="btn-cancel"
+          @click="handleCancel"
+        >
+          Cancel
+        </button>
+        <button
+          class="btn-confirm"
+          @click="handleConfirm"
+        >
+          Confirm
+        </button>
       </div>
     </div>
   </div>

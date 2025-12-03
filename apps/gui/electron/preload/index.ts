@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { FabricCanvasData } from '../main/whiteboard-state';
 
 export interface AppSettings {
   theme: 'light' | 'dark';
@@ -9,7 +10,7 @@ export interface AppSettings {
 
 export interface WhiteboardState {
   version: string;
-  canvasData: any;
+  canvasData: FabricCanvasData;
   savedAt: string;
 }
 
@@ -28,7 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   whiteboard: {
     loadState: () => ipcRenderer.invoke('whiteboard:load-state') as Promise<WhiteboardState | null>,
-    saveState: (canvasData: any) => ipcRenderer.invoke('whiteboard:save-state', canvasData) as Promise<boolean>,
+    saveState: (canvasData: FabricCanvasData) => ipcRenderer.invoke('whiteboard:save-state', canvasData) as Promise<boolean>,
     deleteState: () => ipcRenderer.invoke('whiteboard:delete-state') as Promise<boolean>,
   },
 });
@@ -49,7 +50,7 @@ declare global {
       };
       whiteboard: {
         loadState: () => Promise<WhiteboardState | null>;
-        saveState: (canvasData: any) => Promise<boolean>;
+        saveState: (canvasData: FabricCanvasData) => Promise<boolean>;
         deleteState: () => Promise<boolean>;
       };
     };

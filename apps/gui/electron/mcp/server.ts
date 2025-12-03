@@ -60,7 +60,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
 
 // call_tool handler
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params
+  const { name } = request.params
 
   try {
     if (name === 'open_whiteboard') {

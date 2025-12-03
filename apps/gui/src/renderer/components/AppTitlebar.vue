@@ -1,36 +1,52 @@
 <template>
   <div class="titlebar">
-    <div class="titlebar-drag-region" @dblclick="handleMaximize">
-      <div class="titlebar-title">PromptBoard</div>
+    <div
+      class="titlebar-drag-region"
+      @dblclick="handleMaximize"
+    >
+      <div class="titlebar-title">
+        PromptBoard
+      </div>
     </div>
     <div class="titlebar-controls">
       <button 
         class="titlebar-button minimize"
-        @click="handleMinimize"
         title="Minimize"
+        @click="handleMinimize"
       >
-        <Minus :size="14" :stroke-width="2" />
+        <Minus
+          :size="14"
+          :stroke-width="2"
+        />
       </button>
       <button 
         class="titlebar-button maximize"
-        @click="handleMaximize"
         :title="isMaximized ? 'Restore' : 'Maximize'"
+        @click="handleMaximize"
       >
-        <component :is="isMaximized ? Copy : Square" :size="14" :stroke-width="2" :class="{ 'flip-h': isMaximized }" />
+        <component
+          :is="isMaximized ? Copy : Square"
+          :size="14"
+          :stroke-width="2"
+          :class="{ 'flip-h': isMaximized }"
+        />
       </button>
       <button 
         class="titlebar-button close"
-        @click="handleClose"
         title="Close"
+        @click="handleClose"
       >
-        <X :size="14" :stroke-width="2" />
+        <X
+          :size="14"
+          :stroke-width="2"
+        />
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
 import { Minus, Square, Copy, X } from 'lucide-vue-next';
 
 const isMaximized = ref(false);

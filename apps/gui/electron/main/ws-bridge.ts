@@ -1,6 +1,17 @@
 import { BrowserWindow } from 'electron'
 import { WebSocket } from 'ws'
 
+
+interface McpMessage {
+  id: string;
+  action: string;
+}
+
+interface McpResponse {
+  id: string;
+  [key: string]: unknown;
+}
+
 /**
  * WebSocket Bridge for MCP Communication
  * Handles WebSocket communication between MCP server (console app) and Electron GUI.
@@ -46,7 +57,7 @@ export class WebSocketBridge {
     })
   }
 
-  private async handleMessage(message: any): Promise<any> {
+  private async handleMessage(message: McpMessage): Promise<McpResponse> {
     const { id, action } = message
 
     if (action === 'show') {

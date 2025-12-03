@@ -22,7 +22,7 @@ test.describe('MCP Integration', () => {
   test.beforeEach(async () => {
     // Launch Electron app
     electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../dist-electron/main/index.js')],
+      args: [path.join(__dirname, '../../dist-electron/main/index.mjs')],
       // Set env for MCP server communication testing via stdio
       env: {
         ...process.env,
@@ -109,7 +109,7 @@ test.describe('MCP Integration', () => {
       // Execute JavaScript to get canvas image (simulating what MCP server does)
       const base64Image = await window.evaluate(async () => {
         // Find canvas element with Fabric instance
-        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: any };
+        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: object };
         
         // Wait for fabric to be initialized
         let attempts = 0;
@@ -143,7 +143,7 @@ test.describe('MCP Integration', () => {
       await window.waitForTimeout(1000);
       
       const base64Image = await window.evaluate(async () => {
-        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: any };
+        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: object };
         
         let attempts = 0;
         while (!canvasEl?.fabric && attempts < 10) {
@@ -179,7 +179,7 @@ test.describe('MCP Integration', () => {
       
       // Get initial image
       const image1 = await window.evaluate(async () => {
-        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: any };
+        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: object };
         
         let attempts = 0;
         while (!canvasEl?.fabric && attempts < 10) {
@@ -194,7 +194,7 @@ test.describe('MCP Integration', () => {
       
       // Draw something on canvas
       await window.evaluate(() => {
-        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: any };
+        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: object };
         if (canvasEl?.fabric) {
           // Access fabric from window if available
           const fabricLib = (window as any).fabric;
@@ -216,7 +216,7 @@ test.describe('MCP Integration', () => {
       
       // Get image after drawing
       const image2 = await window.evaluate(async () => {
-        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: any };
+        const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: object };
         if (!canvasEl?.fabric) return null;
         const dataUrl = canvasEl.fabric.toDataURL({ format: 'png', quality: 1 });
         return dataUrl.replace(/^data:image\/png;base64,/, '');
