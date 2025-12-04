@@ -198,8 +198,12 @@ describe('Whiteboard State', () => {
         },
       }));
 
+      const testExecPath = process.platform === 'win32'
+        ? 'C:\\Users\\test\\Promptboard.exe'
+        : '/home/test/Promptboard';
+
       Object.defineProperty(process, 'execPath', {
-        value: 'C:\\Users\\test\\Promptboard.exe',
+        value: testExecPath,
         configurable: true,
       });
 
@@ -213,7 +217,7 @@ describe('Whiteboard State', () => {
       const filePath = writeCall[0] as string;
 
       // Should be in exe directory, not userData
-      expect(filePath).toContain('Users');
+      expect(filePath).toContain('test');
       expect(filePath).toContain('whiteboard-state.json');
     });
   });
