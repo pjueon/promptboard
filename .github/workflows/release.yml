@@ -78,7 +78,12 @@ jobs:
       
       - name: Install platform-specific Rollup (macOS)
         if: runner.os == 'macOS'
-        run: npm install --no-save @rollup/rollup-darwin-x64
+        run: |
+          if [ "$(uname -m)" = "arm64" ]; then
+            npm install --no-save @rollup/rollup-darwin-arm64
+          else
+            npm install --no-save @rollup/rollup-darwin-x64
+          fi
       
       - name: Install platform-specific Rollup (Windows)
         if: runner.os == 'Windows'
