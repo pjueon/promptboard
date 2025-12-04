@@ -72,6 +72,7 @@ describe('Theme Store', () => {
     });
 
     it('should default to light if Electron load fails', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       mockElectronAPI.settings.load.mockRejectedValue(new Error('Load failed'));
       
       const { useThemeStore } = await import('../../src/renderer/stores/themeStore');
@@ -81,6 +82,7 @@ describe('Theme Store', () => {
       await new Promise(resolve => setTimeout(resolve, 50));
       
       expect(themeStore.theme).toBe('light');
+      consoleErrorSpy.mockRestore();
     });
   });
 

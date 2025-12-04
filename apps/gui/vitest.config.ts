@@ -14,8 +14,7 @@ export default defineConfig({
     unstubGlobals: true,
     server: {
       deps: {
-        // Externalize canvas to prevent vitest from trying to load the native module
-        external: ['canvas'],
+        inline: ['fabric'],
       },
     },
     coverage: {

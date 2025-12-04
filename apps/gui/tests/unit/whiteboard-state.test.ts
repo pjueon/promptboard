@@ -66,12 +66,14 @@ describe('Whiteboard State', () => {
     });
 
     it('should return null if state file is corrupted', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.readFileSync).mockReturnValue('invalid json');
 
       const result = loadWhiteboardState();
 
       expect(result).toBeNull();
+      consoleErrorSpy.mockRestore();
     });
 
     it('should return null if state structure is invalid', () => {
@@ -132,6 +134,7 @@ describe('Whiteboard State', () => {
     });
 
     it('should return false if write fails', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const mockCanvasData = { objects: [] };
       vi.mocked(fs.writeFileSync).mockImplementation(() => {
         throw new Error('Write failed');
@@ -140,6 +143,7 @@ describe('Whiteboard State', () => {
       const result = saveWhiteboardState(mockCanvasData);
 
       expect(result).toBe(false);
+      consoleErrorSpy.mockRestore();
     });
 
     it('should use userData directory in development mode', () => {
@@ -174,6 +178,7 @@ describe('Whiteboard State', () => {
     });
 
     it('should return false if delete fails', () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       vi.mocked(fs.existsSync).mockReturnValue(true);
       vi.mocked(fs.unlinkSync).mockImplementation(() => {
         throw new Error('Delete failed');
@@ -182,6 +187,7 @@ describe('Whiteboard State', () => {
       const result = deleteWhiteboardState();
 
       expect(result).toBe(false);
+      consoleErrorSpy.mockRestore();
     });
   });
 

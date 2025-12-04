@@ -1114,6 +1114,11 @@ async function performAutoSave() {
   if (!fabricCanvas || !autoSaveStore.isEnabled) return;
 
   try {
+    // Add a defensive check for toJSON method, which may not exist in a mocked canvas environment
+    if (typeof fabricCanvas.toJSON !== 'function') {
+      console.error('Auto-save failed: fabricCanvas.toJSON is not a function. The canvas mock may be incomplete.');
+      return;
+    }
     const canvasData = fabricCanvas.toJSON();
     await autoSaveStore.saveWhiteboardState(canvasData);
   } catch (error) {
