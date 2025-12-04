@@ -27,6 +27,7 @@ import { spawn, ChildProcess } from 'node:child_process'
 import { WebSocketServer, WebSocket } from 'ws'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { existsSync } from 'node:fs'
 
 // Use __filename, __dirname in CJS build
 // In ESM, convert import.meta.url to fileURLToPath
@@ -93,23 +94,26 @@ function startGUI() {
     const npmBinariesDir = path.join(scriptDir, '..', 'binaries')
     
     switch (process.platform) {
-      case 'win32':
+      case 'win32': {
         // Windows: binaries/PromptBoard.exe or same dir as bridge
         const winNpmPath = path.join(npmBinariesDir, 'PromptBoard.exe')
         const winLocalPath = path.join(scriptDir, 'Promptboard.exe')
-        return require('fs').existsSync(winNpmPath) ? winNpmPath : winLocalPath
+        return existsSync(winNpmPath) ? winNpmPath : winLocalPath
+      }
         
-      case 'darwin':
+      case 'darwin': {
         // macOS: binaries/PromptBoard.app or same dir as bridge
         const macNpmPath = path.join(npmBinariesDir, 'PromptBoard.app', 'Contents', 'MacOS', 'PromptBoard')
         const macLocalPath = path.join(scriptDir, 'Promptboard.app', 'Contents', 'MacOS', 'Promptboard')
-        return require('fs').existsSync(macNpmPath) ? macNpmPath : macLocalPath
+        return existsSync(macNpmPath) ? macNpmPath : macLocalPath
+      }
         
-      case 'linux':
+      case 'linux': {
         // Linux: binaries/PromptBoard or same dir as bridge
         const linuxNpmPath = path.join(npmBinariesDir, 'PromptBoard')
         const linuxLocalPath = path.join(scriptDir, 'Promptboard')
-        return require('fs').existsSync(linuxNpmPath) ? linuxNpmPath : linuxLocalPath
+        return existsSync(linuxNpmPath) ? linuxNpmPath : linuxLocalPath
+      }
         
       default:
         throw new Error(`Unsupported platform for GUI launch: ${process.platform}`)
