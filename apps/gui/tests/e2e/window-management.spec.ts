@@ -48,6 +48,7 @@ test.describe('Window Management', () => {
     });
 
     test('should focus existing window when second instance is launched', async () => {
+      test.skip(!!process.env.CI, 'Window minimization not supported in CI headless environment');
       // Minimize the window
       await electronApp.evaluate(({ BrowserWindow }) => {
         const windows = BrowserWindow.getAllWindows();
@@ -88,6 +89,7 @@ test.describe('Window Management', () => {
 
   test.describe('Window State Management', () => {
     test('should restore minimized window', async () => {
+      test.skip(!!process.env.CI, 'Window minimization not supported in CI headless environment');
       // Minimize window
       await electronApp.evaluate(({ BrowserWindow }) => {
         const windows = BrowserWindow.getAllWindows();

@@ -25,8 +25,12 @@ test.describe('Electron App Launch', () => {
     // Check if the window exists
     expect(window).toBeTruthy();
 
-    // Check the title
-    const title = await window.title();
+    // Wait for page to load and check the title
+    await window.waitForLoadState('domcontentloaded');
+    const title = await electronApp.evaluate(({ BrowserWindow }) => {
+      const windows = BrowserWindow.getAllWindows();
+      return windows[0]?.getTitle() || '';
+    });
     expect(title).toBeTruthy();
 
     // Close the app
