@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type PluginOption } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import electron from 'vite-plugin-electron'
 import { resolve } from 'path'
@@ -7,7 +7,7 @@ import pkg from './package.json'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
-    vue(),
+    vue() as PluginOption, // Type cast to resolve monorepo vite version conflicts
     electron([
       {
         // Main-Process entry file of the Electron App.

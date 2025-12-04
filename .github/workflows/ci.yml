@@ -41,11 +41,8 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-      - name: Install Build Dependencies and App Dependencies
+      - name: Install dependencies
         run: |
-          npm cache clean --force
-          sudo apt-get update
-          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
           npm ci
           npm install --no-save @rollup/rollup-linux-x64-gnu
       - name: Run Unit Tests

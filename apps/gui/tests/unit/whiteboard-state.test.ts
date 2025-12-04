@@ -17,7 +17,18 @@ vi.mock('electron', () => ({
 }));
 
 // Mock fs module
-vi.mock('fs');
+vi.mock('fs', () => {
+  const fsMock = {
+    existsSync: vi.fn(),
+    readFileSync: vi.fn(),
+    writeFileSync: vi.fn(),
+    unlinkSync: vi.fn(),
+  };
+  return {
+    ...fsMock,
+    default: fsMock,
+  };
+});
 
 describe('Whiteboard State', () => {
   let loadWhiteboardState: () => WhiteboardState | null;
@@ -193,16 +204,7 @@ describe('Whiteboard State', () => {
 
   describe('Portability', () => {
     it('should use executable directory in production mode', async () => {
-      // Re-mock for production
-      vi.resetModules();
-
-      // Create new mock with isPackaged = true
-      vi.doMock('electron', () => ({
-        app: {
-          isPackaged: true,
-          getPath: vi.fn(),
-        },
-      }));
+      const isPackagedSpy = vi.spyOn(app, 'isPackaged', 'get').mockReturnValue(true);
 
       const testExecPath = process.platform === 'win32'
         ? 'C:\\Users\\test\\Promptboard.exe'
@@ -215,8 +217,10 @@ describe('Whiteboard State', () => {
 
       vi.mocked(fs.writeFileSync).mockReturnValue();
 
+      // Re-import module to get production-mode behavior
+      // Note: With the spy in place, we don't need to vi.resetModules() here.
+      // We just need to ensure the logic inside saveWhiteboardState re-evaluates the path.
       const module = await import('../../electron/main/whiteboard-state');
-
       module.saveWhiteboardState({ objects: [] });
 
       const writeCall = vi.mocked(fs.writeFileSync).mock.calls[0];
@@ -225,6 +229,9 @@ describe('Whiteboard State', () => {
       // Should be in exe directory, not userData
       expect(filePath).toContain('test');
       expect(filePath).toContain('whiteboard-state.json');
+
+      // Restore the original property
+      isPackagedSpy.mockRestore();
     });
   });
 });
