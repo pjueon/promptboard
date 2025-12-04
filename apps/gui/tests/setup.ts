@@ -9,6 +9,69 @@ import ja from '../src/renderer/i18n/locales/ja';
 // Log to verify this file is being loaded
 console.log('🔧 [TEST SETUP] Test setup file loaded');
 
+// Proactively block canvas.node loading by putting it in module cache FIRST
+// This must happen before any code tries to load canvas
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Module = require('node:module');
+
+const canvasMock = {
+  createCanvas: vi.fn(() => ({
+    getContext: vi.fn(() => ({
+      fillRect: vi.fn(),
+      clearRect: vi.fn(),
+      getImageData: vi.fn(),
+      putImageData: vi.fn(),
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      stroke: vi.fn(),
+      fill: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      scale: vi.fn(),
+      arc: vi.fn(),
+      rect: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 0 })),
+    })),
+    toBuffer: vi.fn(() => Buffer.from([])),
+    toDataURL: vi.fn(() => 'data:image/png;base64,'),
+    width: 800,
+    height: 600,
+  })),
+  createImageData: vi.fn(() => ({
+    data: new Uint8ClampedArray(),
+    width: 0,
+    height: 0
+  })),
+  loadImage: vi.fn(() => Promise.resolve({
+    width: 100,
+    height: 100,
+  })),
+};
+
+// Try to preload canvas into module cache
+// This prevents the real canvas.node from being loaded
+try {
+  // Try to resolve canvas path first
+  const canvasPath = require.resolve('canvas');
+  Module._cache[canvasPath] = {
+    id: canvasPath,
+    exports: canvasMock,
+    loaded: true,
+    filename: canvasPath,
+    children: [],
+  };
+  console.log('✅ [CANVAS MOCK] Preloaded canvas mock into module cache');
+} catch (e) {
+  // Canvas not installed - this is fine, mock will still work via vi.mock
+  console.log('ℹ️ [CANVAS MOCK] Canvas not found in node_modules (this is expected locally)');
+}
+
 // Mock canvas module to prevent native module loading issues in test environment
 // This is necessary because:
 // 1. Fabric.js may try to use Node.js canvas in some environments
@@ -17,8 +80,6 @@ console.log('🔧 [TEST SETUP] Test setup file loaded');
 
 // Patch Node.js require to intercept canvas module loading attempts
 // This handles dynamic require() calls that vi.mock() cannot catch
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const Module = require('node:module');
 const originalRequire = Module.prototype.require;
 
 Module.prototype.require = function (id: string, ...args: unknown[]) {
