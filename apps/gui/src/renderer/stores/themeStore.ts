@@ -36,18 +36,20 @@ export const useThemeStore = defineStore('theme', () => {
   // Actions
   async function setTheme(newTheme: Theme) {
     theme.value = newTheme;
-    
+
     // Save to Electron or localStorage
     if (isElectron) {
       try {
-        await window.electronAPI.settings.save({ theme: newTheme });
+        // Load current settings first to preserve other values
+        const currentSettings = await window.electronAPI.settings.load();
+        await window.electronAPI.settings.save({ ...currentSettings, theme: newTheme });
       } catch (error) {
         console.error('Failed to save theme to Electron:', error);
       }
     } else {
       localStorage.setItem('promptboard-theme', newTheme);
     }
-    
+
     applyThemeToDOM(newTheme);
   }
 
