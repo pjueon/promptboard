@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, VueWrapper } from '@vue/test-utils';
 import ConfirmModal from '../../src/renderer/components/ConfirmModal.vue';
 
 describe('ConfirmModal Component', () => {
-  let wrapper: any;
+  let wrapper: VueWrapper;
 
   describe('Rendering', () => {
     it('should render modal when isOpen is true', () => {

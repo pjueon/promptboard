@@ -197,7 +197,7 @@ test.describe('MCP Integration', () => {
         const canvasEl = document.querySelector('#whiteboard-canvas') as HTMLCanvasElement & { fabric?: object };
         if (canvasEl?.fabric) {
           // Access fabric from window if available
-          const fabricLib = (window as any).fabric;
+          const fabricLib = (window as { fabric?: { Rect: new (options: object) => object } }).fabric;
           if (fabricLib) {
             const rect = new fabricLib.Rect({
               left: 100,

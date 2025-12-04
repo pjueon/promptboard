@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import WhiteboardCanvas from '../../src/renderer/components/WhiteboardCanvas.vue';
 import { useToolbarStore } from '../../src/renderer/stores/toolbarStore';
@@ -46,8 +46,8 @@ vi.mock('fabric', () => ({
 }));
 
 describe('WhiteboardCanvas - Store Integration', () => {
-  let wrapper: any;
-  let toolbarStore: any;
+  let wrapper: VueWrapper;
+  let toolbarStore: ReturnType<typeof useToolbarStore>;
 
   beforeEach(() => {
     // Reset mock canvas state

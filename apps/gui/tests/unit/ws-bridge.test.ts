@@ -76,7 +76,7 @@ describe('WebSocketBridge', () => {
 
       bridge.setMainWindow(mockWindow);
 
-      const responsePromise = new Promise<any>((resolve) => {
+      const responsePromise = new Promise<{ id: number; success: boolean }>((resolve) => {
         wss.on('connection', (ws) => {
           ws.on('message', (data) => {
             const response = JSON.parse(data.toString());
@@ -143,7 +143,7 @@ describe('WebSocketBridge', () => {
 
       bridge.setMainWindow(mockWindow);
 
-      const responsePromise = new Promise<any>((resolve) => {
+      const responsePromise = new Promise<{ id: number; image: string }>((resolve) => {
         wss.on('connection', (ws) => {
           ws.on('message', (data) => {
             const response = JSON.parse(data.toString());
@@ -172,7 +172,7 @@ describe('WebSocketBridge', () => {
 
       bridge.setMainWindow(mockWindow);
 
-      const responsePromise = new Promise<any>((resolve) => {
+      const responsePromise = new Promise<{ id: number; error: string }>((resolve) => {
         wss.on('connection', (ws) => {
           ws.on('message', (data) => {
             const response = JSON.parse(data.toString());
@@ -194,7 +194,7 @@ describe('WebSocketBridge', () => {
     it('should return error for unknown action', async () => {
       const bridge = new WebSocketBridge(wsPort);
 
-      const responsePromise = new Promise<any>((resolve) => {
+      const responsePromise = new Promise<{ id: number; error: string }>((resolve) => {
         wss.on('connection', (ws) => {
           ws.on('message', (data) => {
             const response = JSON.parse(data.toString());

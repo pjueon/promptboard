@@ -1,12 +1,21 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from 'vitest';
+import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import WhiteboardCanvas from '../../src/renderer/components/WhiteboardCanvas.vue';
 import { useToolbarStore } from '../../src/renderer/stores/toolbarStore';
 
+interface MockRect {
+  set: ReturnType<typeof vi.fn>;
+  setCoords: ReturnType<typeof vi.fn>;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 // Mock Fabric.js
-const mockRect = {
-  set: vi.fn(function(this: any, props: any) {
+const mockRect: MockRect = {
+  set: vi.fn(function(this: MockRect, props: Partial<MockRect>) {
     Object.assign(this, props);
   }),
   setCoords: vi.fn(),
@@ -58,8 +67,8 @@ vi.mock('fabric', () => ({
 }));
 
 describe('Region Selection Tool', () => {
-  let wrapper: any;
-  let toolbarStore: any;
+  let wrapper: VueWrapper;
+  let toolbarStore: ReturnType<typeof useToolbarStore>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -89,7 +98,7 @@ describe('Region Selection Tool', () => {
       
       // Should register mouse:down event
       const mouseDownCalls = mockCanvas.on.mock.calls.filter(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       );
       expect(mouseDownCalls.length).toBeGreaterThan(0);
     });
@@ -101,7 +110,7 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -132,11 +141,11 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseMoveHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:move'
+        (call: unknown[]) => call[0] === 'mouse:move'
       )?.[1];
       
       if (mouseDownHandler && mouseMoveHandler) {
@@ -163,11 +172,11 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseMoveHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:move'
+        (call: unknown[]) => call[0] === 'mouse:move'
       )?.[1];
       
       if (mouseDownHandler && mouseMoveHandler) {
@@ -194,11 +203,11 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseUpHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:up'
+        (call: unknown[]) => call[0] === 'mouse:up'
       )?.[1];
       
       if (mouseDownHandler && mouseUpHandler) {
@@ -215,7 +224,7 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -236,11 +245,11 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseMoveHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:move'
+        (call: unknown[]) => call[0] === 'mouse:move'
       )?.[1];
       
       if (mouseDownHandler && mouseMoveHandler) {
@@ -249,7 +258,7 @@ describe('Region Selection Tool', () => {
         mouseMoveHandler({ pointer: { x: 200, y: 200 } });
         
         // Clear mocks to check new calls
-        (fabric.Rect as any).mockClear();
+        (fabric.Rect as unknown as Mock).mockClear();
         mockCanvas.add.mockClear();
         
         // Simulate Delete key press
@@ -275,11 +284,11 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseMoveHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:move'
+        (call: unknown[]) => call[0] === 'mouse:move'
       )?.[1];
       
       if (mouseDownHandler && mouseMoveHandler) {
@@ -303,11 +312,11 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseMoveHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:move'
+        (call: unknown[]) => call[0] === 'mouse:move'
       )?.[1];
       
       if (mouseDownHandler && mouseMoveHandler) {
@@ -338,7 +347,7 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -359,9 +368,7 @@ describe('Region Selection Tool', () => {
     it('should clean up event listeners when switching from select tool', async () => {
       toolbarStore.setTool('select');
       await wrapper.vm.$nextTick();
-      
-      const onCallCount = mockCanvas.on.mock.calls.length;
-      
+
       toolbarStore.setTool('pen');
       await wrapper.vm.$nextTick();
       
@@ -378,7 +385,7 @@ describe('Region Selection Tool', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {

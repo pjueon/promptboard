@@ -19,11 +19,26 @@ interface FabricCanvasElement extends HTMLCanvasElement {
   fabric?: fabric.Canvas;
 }
 
+// Extended Fabric.js types for custom properties
+interface ExtendedFabricCanvas extends fabric.Canvas {
+  _resizeHandler?: () => void;
+  _pasteHandler?: (e: ClipboardEvent) => void;
+  _keydownHandler?: (e: KeyboardEvent) => void;
+}
+
+interface FabricObjectPrototype {
+  controls?: {
+    mtr?: {
+      cursorStyleHandler?: () => string;
+    };
+  };
+}
+
 // Canvas element reference
 const canvasEl = ref<FabricCanvasElement | null>(null);
 
 // Fabric.js canvas instance
-let fabricCanvas: fabric.Canvas | null = null;
+let fabricCanvas: ExtendedFabricCanvas | null = null;
 
 // Shape drawing state
 let isDrawing = false;
@@ -882,14 +897,17 @@ onMounted(() => {
   
   // Override default cursor handler to set rotation cursor (only in non-test environment)
   // Using Lucide RotateCw icon as SVG cursor
-  if (fabric.Object && fabric.Object.prototype && (fabric.Object.prototype as any).controls) {
-    const rotateCwSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
-    const rotateBase64 = btoa(rotateCwSvg);
-    const rotateCursor = `url('data:image/svg+xml;base64,${rotateBase64}') 10 10, auto`;
-    
-    (fabric.Object.prototype as any).controls.mtr.cursorStyleHandler = () => {
-      return rotateCursor;
-    };
+  if (fabric.Object?.prototype) {
+    const fabricObjectPrototype = fabric.Object.prototype as unknown as FabricObjectPrototype;
+    if (fabricObjectPrototype.controls?.mtr) {
+      const rotateCwSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
+      const rotateBase64 = btoa(rotateCwSvg);
+      const rotateCursor = `url('data:image/svg+xml;base64,${rotateBase64}') 10 10, auto`;
+
+      fabricObjectPrototype.controls.mtr.cursorStyleHandler = () => {
+        return rotateCursor;
+      };
+    }
   }
 
   // Set willReadFrequently on Fabric.js internal canvases to suppress warnings
@@ -1026,7 +1044,7 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
   };
   
   document.addEventListener('keydown', handleKeydown);
-  (fabricCanvas as any)._keydownHandler = handleKeydown;
+  fabricCanvas._keydownHandler = handleKeydown;
 
   // Handle window resize
   const handleResize = () => {
@@ -1039,13 +1057,13 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
   };
 
   window.addEventListener('resize', handleResize);
-  
+
   // Register paste event listener
   window.addEventListener('paste', handlePaste);
 
   // Store handlers for cleanup
-  (fabricCanvas as any)._resizeHandler = handleResize;
-  (fabricCanvas as any)._pasteHandler = handlePaste;
+  fabricCanvas._resizeHandler = handleResize;
+  fabricCanvas._pasteHandler = handlePaste;
 });
 
 /**
@@ -1177,9 +1195,9 @@ onBeforeUnmount(() => {
   }
 
   if (fabricCanvas) {
-    const resizeHandler = (fabricCanvas as any)._resizeHandler;
-    const pasteHandler = (fabricCanvas as any)._pasteHandler;
-    const keydownHandler = (fabricCanvas as any)._keydownHandler;
+    const resizeHandler = fabricCanvas._resizeHandler;
+    const pasteHandler = fabricCanvas._pasteHandler;
+    const keydownHandler = fabricCanvas._keydownHandler;
 
     if (resizeHandler) {
       window.removeEventListener('resize', resizeHandler);

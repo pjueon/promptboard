@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { spawn, ChildProcess } from 'child_process';
+import { describe, it, expect, vi } from 'vitest';
+import { ChildProcess } from 'child_process';
 
 /**
  * MCP Bridge Server Integration Test
@@ -41,34 +41,36 @@ describe('MCP Bridge Server', () => {
 
   describe('GUI Process Management', () => {
     it('should spawn GUI process with --ws-port argument', () => {
-      // Mock spawn function
-      const mockSpawn = vi.fn(() => ({
-        on: vi.fn(),
-        kill: vi.fn(),
-      } as unknown as ChildProcess));
+      // Mock spawn function that accepts command and args
+      const mockSpawn: (command: string, args: string[]) => ChildProcess =
+        vi.fn(() => ({
+          on: vi.fn(),
+          kill: vi.fn(),
+        } as unknown as ChildProcess));
 
       const wsPort = 12345;
-      const guiPath = 'Promptboard.exe';
-      
-      const process = mockSpawn(guiPath, [`--ws-port=${wsPort}`]);
 
-      expect(mockSpawn).toHaveBeenCalledWith(guiPath, [`--ws-port=${wsPort}`]);
+      // The actual GUI path should be determined by platform at runtime
+      const process = mockSpawn('path/to/gui', [`--ws-port=${wsPort}`]);
+
+      expect(mockSpawn).toHaveBeenCalledWith('path/to/gui', [`--ws-port=${wsPort}`]);
       expect(process).toBeDefined();
     });
 
     it('should not track GUI process manually (rely on Single Instance Lock)', () => {
       // MCP Bridge only attempts to spawn each time
       // Electron prevents duplicates with a Single Instance Lock
-      const mockSpawn = vi.fn(() => ({
-        on: vi.fn(),
-        kill: vi.fn(),
-      } as unknown as ChildProcess));
+      const mockSpawn: (command: string, args: string[]) => ChildProcess =
+        vi.fn(() => ({
+          on: vi.fn(),
+          kill: vi.fn(),
+        } as unknown as ChildProcess));
 
       // First call
-      mockSpawn('Promptboard.exe', ['--ws-port=12345']);
-      
+      mockSpawn('path/to/gui', ['--ws-port=12345']);
+
       // Second call (duplicate)
-      mockSpawn('Promptboard.exe', ['--ws-port=12345']);
+      mockSpawn('path/to/gui', ['--ws-port=12345']);
 
       // MCP Bridge attempts to spawn both times
       expect(mockSpawn).toHaveBeenCalledTimes(2);
@@ -116,7 +118,7 @@ describe('MCP Bridge Server', () => {
         }),
       };
 
-      const responsePromise = new Promise<any>((resolve) => {
+      const responsePromise = new Promise<{ id: number; image: string }>((resolve) => {
         mockWsClient.on('message', (data: Buffer) => {
           const response = JSON.parse(data.toString());
           resolve(response);
@@ -131,8 +133,8 @@ describe('MCP Bridge Server', () => {
     });
 
     it('should handle GUI connection timeout', async () => {
-      const connectionTimeout = new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
+      const connectionTimeout = new Promise((_resolve, reject) => {
+        setTimeout(() => {
           reject(new Error('GUI connection timeout'));
         }, 100);
 
@@ -148,8 +150,8 @@ describe('MCP Bridge Server', () => {
         on: vi.fn(),
       };
 
-      const responseTimeout = new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
+      const responseTimeout = new Promise((_resolve, reject) => {
+        setTimeout(() => {
           reject(new Error('GUI response timeout'));
         }, 100);
 
@@ -183,19 +185,20 @@ describe('MCP Bridge Server', () => {
     });
 
     it('should handle GUI spawn failure', () => {
-      const mockSpawn = vi.fn(() => {
-        const mockProcess = {
-          on: vi.fn((event: string, callback: Function) => {
-            if (event === 'error') {
-              callback(new Error('Failed to spawn'));
-            }
-          }),
-        };
-        return mockProcess as unknown as ChildProcess;
-      });
+      const mockSpawn: (command: string, args: string[]) => ChildProcess =
+        vi.fn(() => {
+          const mockProcess = {
+            on: vi.fn((event: string, callback: (error: Error) => void) => {
+              if (event === 'error') {
+                callback(new Error('Failed to spawn'));
+              }
+            }),
+          };
+          return mockProcess as unknown as ChildProcess;
+        });
 
-      const process = mockSpawn('InvalidPath.exe', []);
-      
+      const process = mockSpawn('InvalidPath', []);
+
       process.on('error', (error) => {
         expect(error.message).toBe('Failed to spawn');
       });

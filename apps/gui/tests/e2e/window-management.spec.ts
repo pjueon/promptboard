@@ -62,7 +62,7 @@ test.describe('Window Management', () => {
       expect(isMinimized).toBe(true);
 
       // Simulate second-instance event
-      await electronApp.evaluate(({ app, BrowserWindow }) => {
+      await electronApp.evaluate(({ BrowserWindow }) => {
         // Trigger second-instance event handler
         const windows = BrowserWindow.getAllWindows();
         if (windows[0]) {

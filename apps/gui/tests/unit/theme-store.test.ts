@@ -9,7 +9,13 @@ const mockElectronAPI = {
   },
 };
 
-(global as any).window = {
+interface GlobalWithWindow {
+  window: {
+    electronAPI: typeof mockElectronAPI;
+  };
+}
+
+(global as unknown as GlobalWithWindow).window = {
   electronAPI: mockElectronAPI,
 };
 

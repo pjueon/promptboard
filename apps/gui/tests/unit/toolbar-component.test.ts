@@ -3,10 +3,10 @@ import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import AppToolbar from '../../src/renderer/components/AppToolbar.vue';
 import ConfirmModal from '../../src/renderer/components/ConfirmModal.vue';
-import { useToolbarStore } from '../../src/renderer/stores/toolbarStore';
+import { useToolbarStore, Tool } from '../../src/renderer/stores/toolbarStore';
 
 describe('Toolbar Component', () => {
-  let wrapper: VueWrapper<any>;
+  let wrapper: VueWrapper;
   let store: ReturnType<typeof useToolbarStore>;
 
   beforeEach(() => {
@@ -243,12 +243,12 @@ describe('Toolbar Component', () => {
     });
 
     it('should hide font size slider when other tools are selected', async () => {
-      const tools = ['pen', 'select', 'eraser', 'line', 'rectangle', 'circle'];
-      
+      const tools: Tool[] = ['pen', 'select', 'eraser', 'line', 'rectangle', 'circle'];
+
       for (const tool of tools) {
-        store.setTool(tool as any);
+        store.setTool(tool);
         await wrapper.vm.$nextTick();
-        
+
         const fontSlider = wrapper.find('.font-slider');
         expect(fontSlider.exists()).toBe(false);
       }

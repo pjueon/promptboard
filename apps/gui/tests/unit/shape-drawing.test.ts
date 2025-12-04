@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { describe, it, expect, beforeEach, vi, afterEach, type Mock } from 'vitest';
+import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import WhiteboardCanvas from '../../src/renderer/components/WhiteboardCanvas.vue';
 import { useToolbarStore } from '../../src/renderer/stores/toolbarStore';
@@ -70,8 +70,8 @@ vi.mock('fabric', () => ({
 }));
 
 describe('Shape Drawing', () => {
-  let wrapper: any;
-  let toolbarStore: any;
+  let wrapper: VueWrapper;
+  let toolbarStore: ReturnType<typeof useToolbarStore>;
 
   beforeEach(() => {
     // Reset mocks
@@ -114,7 +114,7 @@ describe('Shape Drawing', () => {
       
       // Simulate mouse:down event
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -136,11 +136,11 @@ describe('Shape Drawing', () => {
       
       // Simulate drawing sequence
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseMoveHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:move'
+        (call: unknown[]) => call[0] === 'mouse:move'
       )?.[1];
       
       if (mouseDownHandler && mouseMoveHandler) {
@@ -163,11 +163,11 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseUpHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:up'
+        (call: unknown[]) => call[0] === 'mouse:up'
       )?.[1];
       
       if (mouseDownHandler && mouseUpHandler) {
@@ -199,7 +199,7 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -222,11 +222,11 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseMoveHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:move'
+        (call: unknown[]) => call[0] === 'mouse:move'
       )?.[1];
       
       if (mouseDownHandler && mouseMoveHandler) {
@@ -247,11 +247,11 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseUpHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:up'
+        (call: unknown[]) => call[0] === 'mouse:up'
       )?.[1];
       
       if (mouseDownHandler && mouseUpHandler) {
@@ -279,7 +279,7 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -302,11 +302,11 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseMoveHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:move'
+        (call: unknown[]) => call[0] === 'mouse:move'
       )?.[1];
       
       if (mouseDownHandler && mouseMoveHandler) {
@@ -325,11 +325,11 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       const mouseUpHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:up'
+        (call: unknown[]) => call[0] === 'mouse:up'
       )?.[1];
       
       if (mouseDownHandler && mouseUpHandler) {
@@ -348,7 +348,7 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownCalls = mockCanvas.on.mock.calls.filter(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       );
       expect(mouseDownCalls.length).toBeGreaterThan(0);
     });
@@ -360,7 +360,7 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -386,10 +386,10 @@ describe('Shape Drawing', () => {
         enterEditing: vi.fn(),
         setCoords: vi.fn(),
       };
-      (fabric.IText as any).mockReturnValue(mockText);
+      (fabric.IText as unknown as Mock).mockReturnValue(mockText);
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -405,7 +405,7 @@ describe('Shape Drawing', () => {
       await wrapper.vm.$nextTick();
       
       const mouseDownHandler = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'mouse:down'
+        (call: unknown[]) => call[0] === 'mouse:down'
       )?.[1];
       
       if (mouseDownHandler) {
@@ -422,12 +422,10 @@ describe('Shape Drawing', () => {
     it('should remove event listeners when switching tools', async () => {
       toolbarStore.setTool('line');
       await wrapper.vm.$nextTick();
-      
-      const onCallCount = mockCanvas.on.mock.calls.length;
-      
+
       toolbarStore.setTool('pen');
       await wrapper.vm.$nextTick();
-      
+
       expect(mockCanvas.off).toHaveBeenCalled();
     });
 

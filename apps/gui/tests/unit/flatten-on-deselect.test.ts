@@ -56,7 +56,7 @@ vi.mock('fabric', () => ({
 }));
 
 describe('Flatten on Deselect', () => {
-  let wrapper: VueWrapper<any>;
+  let wrapper: VueWrapper;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -94,7 +94,7 @@ describe('Flatten on Deselect', () => {
       const selectionClearedCall = mockCanvas.on.mock.calls.find(
         (call: [string, unknown]) => call[0] === 'selection:cleared'
       );
-      const selectionClearedHandler = selectionClearedCall?.[1] as (event: any) => void;
+      const selectionClearedHandler = selectionClearedCall?.[1] as (event: { deselected?: object[] }) => void;
       
       expect(selectionClearedHandler).toBeDefined();
       
@@ -120,7 +120,7 @@ describe('Flatten on Deselect', () => {
       const selectionClearedCall = mockCanvas.on.mock.calls.find(
         (call: [string, unknown]) => call[0] === 'selection:cleared'
       );
-      const selectionClearedHandler = selectionClearedCall?.[1] as (event: any) => void;
+      const selectionClearedHandler = selectionClearedCall?.[1] as (event: { deselected?: object[] }) => void;
       
       const event = {
         deselected: [mockObject],
@@ -138,7 +138,7 @@ describe('Flatten on Deselect', () => {
       const selectionClearedCall = mockCanvas.on.mock.calls.find(
         (call: [string, unknown]) => call[0] === 'selection:cleared'
       );
-      const selectionClearedHandler = selectionClearedCall?.[1] as (event: any) => void;
+      const selectionClearedHandler = selectionClearedCall?.[1] as (event: { deselected?: object[] }) => void;
       
       const mockObject2 = { type: 'circle' };
       const event = {
@@ -159,7 +159,7 @@ describe('Flatten on Deselect', () => {
       const selectionClearedCall = mockCanvas.on.mock.calls.find(
         (call: [string, unknown]) => call[0] === 'selection:cleared'
       );
-      const selectionClearedHandler = selectionClearedCall?.[1] as (event: any) => void;
+      const selectionClearedHandler = selectionClearedCall?.[1] as (event: { deselected?: object[] }) => void;
       
       // Clear previous calls
       mockCanvas.toDataURL.mockClear();
@@ -220,7 +220,7 @@ describe('Flatten on Deselect', () => {
       const selectionClearedCall = mockCanvas.on.mock.calls.find(
         (call: [string, unknown]) => call[0] === 'selection:cleared'
       );
-      const selectionClearedHandler = selectionClearedCall?.[1] as (event: any) => void;
+      const selectionClearedHandler = selectionClearedCall?.[1] as (event: { deselected?: object[] }) => void;
       
       // Simulate deselection
       selectionClearedHandler({ deselected: [mockImage] });

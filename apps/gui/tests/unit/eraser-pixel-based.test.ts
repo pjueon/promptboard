@@ -1,11 +1,17 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { mount } from '@vue/test-utils';
+import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import WhiteboardCanvas from '../../src/renderer/components/WhiteboardCanvas.vue';
 import { useToolbarStore } from '../../src/renderer/stores/toolbarStore';
 
+interface MockBrush {
+  color: string;
+  width: number;
+  globalCompositeOperation?: string;
+}
+
 // Mock Fabric.js
-const mockBrush = {
+const mockBrush: MockBrush = {
   color: '#000000',
   width: 2,
 };
@@ -50,14 +56,14 @@ vi.mock('fabric', () => ({
 }));
 
 describe('Pixel-based Eraser', () => {
-  let wrapper: any;
-  let toolbarStore: any;
+  let wrapper: VueWrapper;
+  let toolbarStore: ReturnType<typeof useToolbarStore>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockCanvas.isDrawingMode = false;
     mockCanvas.selection = true;
-    (mockBrush as any).globalCompositeOperation = undefined;
+    mockBrush.globalCompositeOperation = undefined;
     
     const pinia = createPinia();
     setActivePinia(pinia);
@@ -132,7 +138,7 @@ describe('Pixel-based Eraser', () => {
       await wrapper.vm.$nextTick();
       
       const pathCreatedCalls = mockCanvas.on.mock.calls.filter(
-        (call: any) => call[0] === 'path:created'
+        (call: unknown[]) => call[0] === 'path:created'
       );
       
       expect(pathCreatedCalls.length).toBeGreaterThan(0);
@@ -147,7 +153,7 @@ describe('Pixel-based Eraser', () => {
       
       // Find and call path:created handler
       const pathCreatedCall = mockCanvas.on.mock.calls.find(
-        (call: any) => call[0] === 'path:created'
+        (call: unknown[]) => call[0] === 'path:created'
       );
       const pathCreatedHandler = pathCreatedCall?.[1];
       

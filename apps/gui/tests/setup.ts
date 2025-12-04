@@ -23,7 +23,7 @@ config.global.plugins = [i18n];
 
 // Filter console.error (suppress specific messages only)
 const originalConsoleError = console.error;
-console.error = (...args: any[]) => {
+console.error = (...args: unknown[]) => {
   const message = args[0]?.toString() || '';
 
   // Suppress WebSocketBridge connect/disconnect logs
@@ -52,7 +52,7 @@ const mockIpcRenderer = {
   removeListener: vi.fn(),
 };
 
-// @ts-expect-error
+// @ts-expect-error - window.electron is not typed but required for testing
 global.window.electron = {
   ipcRenderer: mockIpcRenderer,
 };

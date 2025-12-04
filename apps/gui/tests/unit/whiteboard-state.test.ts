@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import fs from 'fs';
-import path from 'path';
 import { app } from 'electron';
+import type { WhiteboardState, FabricCanvasData } from '../../electron/main/whiteboard-state';
 
 // Mock electron modules
 vi.mock('electron', () => ({
@@ -20,9 +20,9 @@ vi.mock('electron', () => ({
 vi.mock('fs');
 
 describe('Whiteboard State', () => {
-  let loadWhiteboardState: any;
-  let saveWhiteboardState: any;
-  let deleteWhiteboardState: any;
+  let loadWhiteboardState: () => WhiteboardState | null;
+  let saveWhiteboardState: (canvasData: FabricCanvasData) => boolean;
+  let deleteWhiteboardState: () => boolean;
 
   beforeEach(async () => {
     vi.clearAllMocks();
