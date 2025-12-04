@@ -45,13 +45,13 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
-      - name: Install dependencies
+      - name: Clear npm cache and install dependencies
         run: |
+          npm cache clean --force
           npm ci
           npm install --no-save @rollup/rollup-linux-x64-gnu
       - name: Rebuild canvas native module
         run: npm rebuild canvas --update-binary
-        working-directory: ./apps/gui
       - name: Run Unit Tests
         run: npm run test:unit
         working-directory: ./apps/gui
