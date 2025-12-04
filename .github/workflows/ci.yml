@@ -49,6 +49,9 @@ jobs:
         run: |
           npm ci
           npm install --no-save @rollup/rollup-linux-x64-gnu
+      - name: Rebuild canvas native module
+        run: npm rebuild canvas --update-binary
+        working-directory: ./apps/gui
       - name: Run Unit Tests
         run: npm run test:unit
         working-directory: ./apps/gui
