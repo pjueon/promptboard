@@ -1,0 +1,65 @@
+# NPM package ignores
+node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs (don't publish Electron build artifacts)
+dist-electron/
+dist/
+!dist/mcp-bridge.cjs
+!dist/mcp-bridge.cjs.map
+release/
+build/
+
+# Source files (only publish built files)
+src/
+electron/
+public/
+tests/
+test-results/
+playwright-report/
+__mocks__/
+
+# Config files
+*.config.ts
+*.config.js
+tsconfig.json
+.eslintrc*
+.prettierrc*
+playwright.config.ts
+vite.config.ts
+vitest.config.ts
+postcss.config.js
+
+# Documentation
+README.md
+doc/
+
+# Git
+.git/
+.gitignore
+.github/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test files
+*.test.ts
+*.spec.ts
+
+# Scripts (keep only download-binary.js)
+scripts/build-mcp.js
+scripts/verify-build.js
+
+# Binaries will be downloaded by postinstall
+binaries/
+!binaries/.gitkeep

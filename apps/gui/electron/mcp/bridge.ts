@@ -85,19 +85,32 @@ function startGUI() {
   }
   const wsPort = address.port
 
-  // mcp-bridge.cjs and the Promptboard executable are located in the same directory structure.
-  // The executable path varies by platform.
+  // mcp-bridge.cjs location:
+  // - In npm package: dist/mcp-bridge.cjs
+  // - Downloaded binaries: binaries/ folder (sibling to dist/)
   const getGuiPath = () => {
+    // Check if running from npm package
+    const npmBinariesDir = path.join(scriptDir, '..', 'binaries')
+    
     switch (process.platform) {
       case 'win32':
-        // On Windows, bridge and .exe are in the same directory.
-        return path.join(scriptDir, 'Promptboard.exe')
+        // Windows: binaries/PromptBoard.exe or same dir as bridge
+        const winNpmPath = path.join(npmBinariesDir, 'PromptBoard.exe')
+        const winLocalPath = path.join(scriptDir, 'Promptboard.exe')
+        return require('fs').existsSync(winNpmPath) ? winNpmPath : winLocalPath
+        
       case 'darwin':
-        // On macOS, bridge is next to the .app bundle. The executable is inside.
-        return path.join(scriptDir, 'Promptboard.app', 'Contents', 'MacOS', 'Promptboard')
+        // macOS: binaries/PromptBoard.app or same dir as bridge
+        const macNpmPath = path.join(npmBinariesDir, 'PromptBoard.app', 'Contents', 'MacOS', 'PromptBoard')
+        const macLocalPath = path.join(scriptDir, 'Promptboard.app', 'Contents', 'MacOS', 'Promptboard')
+        return require('fs').existsSync(macNpmPath) ? macNpmPath : macLocalPath
+        
       case 'linux':
-        // On Linux, bridge and executable are in the same directory.
-        return path.join(scriptDir, 'Promptboard')
+        // Linux: binaries/PromptBoard or same dir as bridge
+        const linuxNpmPath = path.join(npmBinariesDir, 'PromptBoard')
+        const linuxLocalPath = path.join(scriptDir, 'Promptboard')
+        return require('fs').existsSync(linuxNpmPath) ? linuxNpmPath : linuxLocalPath
+        
       default:
         throw new Error(`Unsupported platform for GUI launch: ${process.platform}`)
     }
