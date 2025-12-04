@@ -56,3 +56,35 @@ const mockIpcRenderer = {
 global.window.electron = {
   ipcRenderer: mockIpcRenderer,
 };
+
+// Mock canvas module to avoid native module loading issues in test environment
+vi.mock('canvas', () => ({
+  createCanvas: vi.fn(() => ({
+    getContext: vi.fn(() => ({
+      fillRect: vi.fn(),
+      clearRect: vi.fn(),
+      getImageData: vi.fn(),
+      putImageData: vi.fn(),
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      closePath: vi.fn(),
+      stroke: vi.fn(),
+      fill: vi.fn(),
+      translate: vi.fn(),
+      rotate: vi.fn(),
+      scale: vi.fn(),
+      arc: vi.fn(),
+      rect: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn(() => ({ width: 0 })),
+    })),
+    toBuffer: vi.fn(() => Buffer.from([])),
+    toDataURL: vi.fn(() => 'data:image/png;base64,'),
+  })),
+  createImageData: vi.fn(() => ({ data: [], width: 0, height: 0 })),
+  loadImage: vi.fn(() => Promise.resolve({})),
+}));
