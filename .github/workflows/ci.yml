@@ -39,7 +39,7 @@ jobs:
       - name: Install system dependencies for canvas
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
+          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -49,6 +49,8 @@ jobs:
         run: |
           npm ci
           npm install --no-save @rollup/rollup-linux-x64-gnu
+      - name: Rebuild canvas
+        run: npm rebuild canvas
       - name: Run Unit Tests
         run: npm run test:unit
         working-directory: ./apps/gui
@@ -59,10 +61,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Install system dependencies for canvas
+      - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
+          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev xvfb
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -72,6 +74,8 @@ jobs:
         run: |
           npm ci
           npm install --no-save @rollup/rollup-linux-x64-gnu
+      - name: Rebuild canvas
+        run: npm rebuild canvas
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
         working-directory: ./apps/gui
@@ -79,7 +83,7 @@ jobs:
         run: npm run build
         working-directory: ./apps/gui
       - name: Run E2E Tests
-        run: npm run test:e2e
+        run: xvfb-run --auto-servernum npm run test:e2e
         working-directory: ./apps/gui
       - name: Upload test results
         if: failure()
