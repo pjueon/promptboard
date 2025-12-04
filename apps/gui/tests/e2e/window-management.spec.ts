@@ -21,7 +21,10 @@ test.describe('Window Management', () => {
 
   test.beforeEach(async () => {
     electronApp = await electron.launch({
-      args: [path.join(__dirname, '../../dist-electron/main/index.mjs')],
+      args: [
+        path.join(__dirname, '../../dist-electron/main/index.mjs'),
+        ...(process.env.CI ? ['--no-sandbox'] : []),
+      ],
     });
 
     window = await electronApp.firstWindow();

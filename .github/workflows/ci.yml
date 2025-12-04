@@ -36,6 +36,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install system dependencies for canvas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -55,6 +59,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install system dependencies for canvas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libcairo2-dev libjpeg-dev libpango1.0-dev libgif-dev librsvg2-dev
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
