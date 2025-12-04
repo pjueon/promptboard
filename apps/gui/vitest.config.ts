@@ -7,7 +7,6 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    threads: false, // Required to prevent canvas.node crashes in multi-threaded test runs
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/unit/**/*.{test,spec}.ts'],
     exclude: ['tests/e2e/**/*'],
@@ -35,8 +34,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      // Mock canvas to avoid native module loading in tests
-      canvas: fileURLToPath(new URL('./__mocks__/canvas.ts', import.meta.url)),
     },
   },
 });
