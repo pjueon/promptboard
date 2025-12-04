@@ -191,5 +191,9 @@ playwright/.cache/
 .claude/commands/
 .gemini/commands/
 
+# Downloaded binaries (postinstall)
+**/binaries/
+!**/binaries/.gitkeep
+
 .claude/
 CLAUDE.md
