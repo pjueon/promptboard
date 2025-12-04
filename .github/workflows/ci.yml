@@ -18,8 +18,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Run Lint
         run: npm run lint
         working-directory: ./apps/gui
@@ -37,8 +38,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Run Unit Tests
         run: npm run test:unit
         working-directory: ./apps/gui
@@ -53,8 +55,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
       - name: Install dependencies
-        run: npm install
+        run: npm ci
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
         working-directory: ./apps/gui
