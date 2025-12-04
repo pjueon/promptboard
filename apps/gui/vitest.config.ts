@@ -10,6 +10,14 @@ export default defineConfig({
     setupFiles: ['./tests/setup.ts'],
     include: ['tests/unit/**/*.{test,spec}.ts'],
     exclude: ['tests/e2e/**/*'],
+    mockReset: false,
+    unstubGlobals: true,
+    server: {
+      deps: {
+        // Externalize canvas to prevent vitest from trying to load the native module
+        external: ['canvas'],
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -32,6 +40,8 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      // Mock canvas to avoid native module loading in tests
+      canvas: fileURLToPath(new URL('./__mocks__/canvas.ts', import.meta.url)),
     },
   },
 });

@@ -6,6 +6,110 @@ import en from '../src/renderer/i18n/locales/en';
 import ko from '../src/renderer/i18n/locales/ko';
 import ja from '../src/renderer/i18n/locales/ja';
 
+// Log to verify this file is being loaded
+console.log('🔧 [TEST SETUP] Test setup file loaded');
+
+// Mock canvas module to prevent native module loading issues in test environment
+// This is necessary because:
+// 1. Fabric.js may try to use Node.js canvas in some environments
+// 2. The native canvas.node binary may not be compatible with the CI environment
+// 3. Unit tests don't need real canvas functionality
+
+// Patch Node.js require to intercept canvas module loading attempts
+// This handles dynamic require() calls that vi.mock() cannot catch
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Module = require('node:module');
+const originalRequire = Module.prototype.require;
+
+Module.prototype.require = function (id: string, ...args: unknown[]) {
+  if (id === 'canvas') {
+    // Return a mock that satisfies canvas API requirements
+    return {
+      createCanvas: vi.fn(() => ({
+        getContext: vi.fn(() => ({
+          fillRect: vi.fn(),
+          clearRect: vi.fn(),
+          getImageData: vi.fn(),
+          putImageData: vi.fn(),
+          drawImage: vi.fn(),
+          save: vi.fn(),
+          restore: vi.fn(),
+          beginPath: vi.fn(),
+          moveTo: vi.fn(),
+          lineTo: vi.fn(),
+          closePath: vi.fn(),
+          stroke: vi.fn(),
+          fill: vi.fn(),
+          translate: vi.fn(),
+          rotate: vi.fn(),
+          scale: vi.fn(),
+          arc: vi.fn(),
+          rect: vi.fn(),
+          fillText: vi.fn(),
+          measureText: vi.fn(() => ({ width: 0 })),
+        })),
+        toBuffer: vi.fn(() => Buffer.from([])),
+        toDataURL: vi.fn(() => 'data:image/png;base64,'),
+        width: 800,
+        height: 600,
+      })),
+      createImageData: vi.fn(() => ({
+        data: new Uint8ClampedArray(),
+        width: 0,
+        height: 0
+      })),
+      loadImage: vi.fn(() => Promise.resolve({
+        width: 100,
+        height: 100,
+      })),
+    };
+  }
+  return originalRequire.apply(this, [id, ...args]);
+};
+
+// Also use vi.mock for static imports (though canvas is typically not imported directly)
+vi.mock('canvas', () => {
+  return {
+    createCanvas: vi.fn(() => ({
+      getContext: vi.fn(() => ({
+        fillRect: vi.fn(),
+        clearRect: vi.fn(),
+        getImageData: vi.fn(),
+        putImageData: vi.fn(),
+        drawImage: vi.fn(),
+        save: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        stroke: vi.fn(),
+        fill: vi.fn(),
+        translate: vi.fn(),
+        rotate: vi.fn(),
+        scale: vi.fn(),
+        arc: vi.fn(),
+        rect: vi.fn(),
+        fillText: vi.fn(),
+        measureText: vi.fn(() => ({ width: 0 })),
+      })),
+      toBuffer: vi.fn(() => Buffer.from([])),
+      toDataURL: vi.fn(() => 'data:image/png;base64,'),
+      width: 800,
+      height: 600,
+    })),
+    createImageData: vi.fn(() => ({
+      data: new Uint8ClampedArray(),
+      width: 0,
+      height: 0
+    })),
+    loadImage: vi.fn(() => Promise.resolve({
+      width: 100,
+      height: 100,
+    })),
+  };
+});
+
 // Create i18n instance
 const i18n = createI18n({
   legacy: false,
@@ -56,35 +160,3 @@ const mockIpcRenderer = {
 global.window.electron = {
   ipcRenderer: mockIpcRenderer,
 };
-
-// Mock canvas module to avoid native module loading issues in test environment
-vi.mock('canvas', () => ({
-  createCanvas: vi.fn(() => ({
-    getContext: vi.fn(() => ({
-      fillRect: vi.fn(),
-      clearRect: vi.fn(),
-      getImageData: vi.fn(),
-      putImageData: vi.fn(),
-      drawImage: vi.fn(),
-      save: vi.fn(),
-      restore: vi.fn(),
-      beginPath: vi.fn(),
-      moveTo: vi.fn(),
-      lineTo: vi.fn(),
-      closePath: vi.fn(),
-      stroke: vi.fn(),
-      fill: vi.fn(),
-      translate: vi.fn(),
-      rotate: vi.fn(),
-      scale: vi.fn(),
-      arc: vi.fn(),
-      rect: vi.fn(),
-      fillText: vi.fn(),
-      measureText: vi.fn(() => ({ width: 0 })),
-    })),
-    toBuffer: vi.fn(() => Buffer.from([])),
-    toDataURL: vi.fn(() => 'data:image/png;base64,'),
-  })),
-  createImageData: vi.fn(() => ({ data: [], width: 0, height: 0 })),
-  loadImage: vi.fn(() => Promise.resolve({})),
-}));
