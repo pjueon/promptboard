@@ -112,7 +112,7 @@ async function install() {
     // Get latest release
     console.log('🔍 Fetching latest release...');
     const release = await getLatestRelease();
-    const version = release.tag_name;
+    const version = release.tag_name.replace(/^v/, ''); // Remove 'v' prefix
     console.log(`📌 Version: ${version}`);
 
     // Find the correct asset
