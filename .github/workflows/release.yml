@@ -1,0 +1,155 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # v0.1.0, v1.0.0, etc.
+
+jobs:
+  test:
+    name: "Run Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev xvfb
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install --no-save @rollup/rollup-linux-x64-gnu
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+        working-directory: ./apps/gui
+      
+      - name: Run Unit Tests
+        run: npm run test:unit
+        working-directory: ./apps/gui
+      
+      - name: Build the application
+        run: npm run build
+        working-directory: ./apps/gui
+      
+      - name: Run E2E Tests
+        run: xvfb-run --auto-servernum npm run test:e2e
+        working-directory: ./apps/gui
+
+  release:
+    name: "Build & Release"
+    needs: test
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install platform-specific Rollup (Linux)
+        if: runner.os == 'Linux'
+        run: npm install --no-save @rollup/rollup-linux-x64-gnu
+      
+      - name: Install platform-specific Rollup (macOS)
+        if: runner.os == 'macOS'
+        run: npm install --no-save @rollup/rollup-darwin-x64
+      
+      - name: Install platform-specific Rollup (Windows)
+        if: runner.os == 'Windows'
+        run: npm install --no-save @rollup/rollup-win32-x64-msvc
+      
+      - name: Build application
+        run: npm run build
+        working-directory: ./apps/gui
+      
+      - name: Package application (Linux)
+        if: runner.os == 'Linux'
+        run: npx electron-builder --linux zip --x64
+        working-directory: ./apps/gui
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Package application (macOS)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac zip --x64 --arm64
+        working-directory: ./apps/gui
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Package application (Windows)
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win zip --x64
+        working-directory: ./apps/gui
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}
+          path: |
+            apps/gui/release/*.zip
+          retention-days: 7
+
+  publish:
+    name: "Create GitHub Release"
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      
+      - name: Display structure of downloaded files
+        run: ls -R ./artifacts
+      
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ./artifacts/release-Linux/*.zip
+            ./artifacts/release-macOS/*.zip
+            ./artifacts/release-Windows/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
