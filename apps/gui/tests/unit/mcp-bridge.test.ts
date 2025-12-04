@@ -157,7 +157,7 @@ describe('MCP Bridge Server - Real Implementation', () => {
       mockSpawn.mockReturnValue({
         on: vi.fn(),
         kill: vi.fn(),
-      } as any);
+      } as unknown as ReturnType<typeof spawn>);
 
       // Simulate the getGuiPath logic from bridge.ts
       const getGuiPath = () => {
@@ -185,7 +185,7 @@ describe('MCP Bridge Server - Real Implementation', () => {
         on: vi.fn(),
         kill: vi.fn(),
       };
-      mockSpawn.mockReturnValue(mockProcess as any);
+      mockSpawn.mockReturnValue(mockProcess as unknown as ReturnType<typeof spawn>);
 
       const wsPort = 12345;
       const guiPath = 'test-gui-path';
@@ -422,7 +422,7 @@ describe('MCP Bridge Server - Real Implementation', () => {
     });
 
     it('should validate get_whiteboard requires active connection', () => {
-      let wsClient: WebSocket | null = null;
+      const wsClient: WebSocket | null = null;
 
       // Simulate the logic from bridge.ts
       const getWhiteboard = () => {
