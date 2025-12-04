@@ -1,78 +1,205 @@
 # MCP Setup Guide
 
-## Quick Start
+This guide covers three ways to set up PromptBoard with MCP-enabled AI clients.
 
-### 1. Build the Application
+---
 
-```bash
-# From project root
-npm install
-npm run build
+## 🚀 Method 1: Quick Setup (Recommended)
+
+### Standard Configuration
+
+```json
+{
+  "mcpServers": {
+    "promptboard": {
+      "command": "npx",
+      "args": ["-y", "promptboard"]
+    }
+  }
+}
 ```
 
-**Output:** `apps/gui/dist/` and `apps/gui/dist-electron/`
-- `dist/mcp-bridge.cjs` - MCP Bridge Server
-- `dist-electron/` - Electron build files
+No installation needed - `npx` will handle everything automatically.
 
-**For packaged app (optional):**
-```bash
-cd apps/gui
-npx electron-builder
-# Output: The packaged application will be in `apps/gui/release/`.
-# The exact path depends on your OS:
-# - Windows: `win-unpacked/Promptboard.exe`
-# - macOS: `mac/Promptboard.app` or `mac-arm64/Promptboard.app`
-# - Linux: `linux-unpacked/promptboard`
-```
-
-### 2. Configure Your AI Client
+### Platform-Specific Instructions
 
 #### Claude Desktop
 
-**Config File:** `%APPDATA%\Claude\claude_desktop_config.json`
+**Config Location:**
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
 
+**Configuration:**
 ```json
 {
   "mcpServers": {
     "promptboard": {
-      "command": "node",
-      "args": ["C:\\path\\to\\PromptBoard\\apps\\gui\\dist\\mcp-bridge.cjs"]
+      "command": "npx",
+      "args": ["-y", "promptboard"]
     }
   }
 }
 ```
 
-**Steps:**
-1. Open `%APPDATA%\Claude\claude_desktop_config.json`
-2. Add `promptboard` server config
-3. Update path to your actual location
-4. Restart Claude Desktop
-5. Test: Ask Claude to "open whiteboard"
+#### Claude Code
+
+```bash
+claude mcp add promptboard npx -y promptboard
+```
+
+**Custom Commands (Optional):**
+```bash
+npx promptboard init claude-code
+```
+
+This creates `.claude/commands/whiteboard.md` and `.claude/commands/check-board.md`:
+- `/whiteboard` - Opens the visual whiteboard
+- `/check-board [message]` - Analyzes whiteboard content
 
 #### Gemini CLI
 
-**Config File:** `.gemini/settings.json` (in project root)
+**Config Location:** `.gemini/settings.json` (in your project)
 
+**Configuration:**
 ```json
 {
   "mcpServers": {
     "promptboard": {
-      "command": "node",
-      "args": ["apps/gui/dist/mcp-bridge.cjs"]
+      "command": "npx",
+      "args": ["-y", "promptboard"]
     }
   }
 }
 ```
 
-**Steps:**
-1. Navigate to project root: `cd C:\path\to\PromptBoard`
-2. Config is already in `.gemini/settings.json`
-3. Restart Gemini CLI
-4. Test: `gemini ask "@promptboard open whiteboard"`
+**Custom Commands (Optional):**
+```bash
+npx promptboard init gemini-cli
+```
 
-### 3. Available Commands
+This creates `.gemini/commands/whiteboard.toml` and `.gemini/commands/check-board.toml`.
 
-Once configured, you can ask your AI:
+### Test
+
+1. Restart your AI client
+2. Try these commands:
+   - "Open the whiteboard"
+   - "What's on the whiteboard?"
+   - `/whiteboard` (if custom commands set up)
+   - `/check-board What does the diagram show?` (if custom commands set up)
+
+---
+
+## 📦 Method 2: Download from GitHub Releases
+
+### 1. Download Binary
+
+1. Visit [GitHub Releases](https://github.com/pjueon/promptboard/releases/latest)
+2. Download for your platform:
+   - **Windows:** `PromptBoard-x.x.x-win.zip`
+   - **macOS:** `PromptBoard-x.x.x-mac.zip` (Universal: Intel + Apple Silicon)
+   - **Linux:** `PromptBoard-x.x.x-linux.zip`
+
+### 2. Extract
+
+**Windows (PowerShell):**
+```powershell
+Expand-Archive PromptBoard-0.1.0-win.zip -DestinationPath C:\PromptBoard
+```
+
+**macOS/Linux:**
+```bash
+unzip PromptBoard-0.1.0-mac.zip -d ~/PromptBoard
+# or
+tar -xzf PromptBoard-0.1.0-linux.tar.gz -C ~/PromptBoard
+```
+
+### 3. Configure MCP
+
+**Claude Desktop:**
+```json
+{
+  "mcpServers": {
+    "promptboard": {
+      "command": "node",
+      "args": ["C:\\PromptBoard\\mcp-bridge.cjs"]
+    }
+  }
+}
+```
+
+**macOS/Linux:** Update path to `/Users/username/PromptBoard/mcp-bridge.cjs` or `/home/username/PromptBoard/mcp-bridge.cjs`
+
+---
+
+## 🔧 Method 3: Build from Source
+
+### 1. Clone and Build
+
+```bash
+# Clone repository
+git clone https://github.com/pjueon/promptboard.git
+cd promptboard
+
+# Install dependencies
+npm install
+
+# Build application
+cd apps/gui
+npm run build
+```
+
+**Output:**
+- `apps/gui/dist/mcp-bridge.cjs` - MCP Bridge Server
+- `apps/gui/dist-electron/` - Electron build files
+
+### 2. Configure MCP
+
+**Option A: Direct path to mcp-bridge.cjs**
+```json
+{
+  "mcpServers": {
+    "promptboard": {
+      "command": "node",
+      "args": ["/absolute/path/to/promptboard/apps/gui/dist/mcp-bridge.cjs"]
+    }
+  }
+}
+```
+
+**Option B: Use npm script**
+```json
+{
+  "mcpServers": {
+    "promptboard": {
+      "command": "npm",
+      "args": ["run", "mcp"],
+      "cwd": "/absolute/path/to/promptboard/apps/gui"
+    }
+  }
+}
+```
+
+### 3. Package (Optional)
+
+For distribution:
+
+```bash
+cd apps/gui
+npx electron-builder
+```
+
+**Output:** `apps/gui/release/`
+- Windows: `win-unpacked/PromptBoard.exe`
+- macOS: `mac/PromptBoard.app` or `mac-arm64/PromptBoard.app`
+- Linux: `linux-unpacked/promptboard`
+
+---
+
+## 📋 Available Commands
+
+Once configured, you can interact with PromptBoard through your AI:
 
 **Open Whiteboard:**
 ```
@@ -88,7 +215,100 @@ Once configured, you can ask your AI:
 "Capture the whiteboard"
 ```
 
-## How It Works
+**With Custom Commands (if set up):**
+```
+/whiteboard
+/check-board
+/check-board What does the red section mean?
+/check-board Are there any issues in the diagram?
+```
+
+---
+
+## 🎨 Custom Commands Setup
+
+Custom commands provide convenient shortcuts for your AI client.
+
+### Claude Code
+
+```bash
+npx promptboard init claude-code
+```
+
+**Creates:**
+- `.claude/commands/whiteboard.md`
+- `.claude/commands/check-board.md`
+
+**File format:** Markdown with frontmatter
+```markdown
+---
+description: Open Promptboard whiteboard for visual collaboration
+---
+
+Use the open_whiteboard tool to launch the Promptboard whiteboard window.
+```
+
+**Usage in Claude Code:**
+```
+/whiteboard
+/check-board What's wrong with this diagram?
+```
+
+### Gemini CLI
+
+```bash
+npx promptboard init gemini-cli
+```
+
+**Creates:**
+- `.gemini/commands/whiteboard.toml`
+- `.gemini/commands/check-board.toml`
+
+**File format:** TOML
+```toml
+description = "Open Promptboard whiteboard for visual collaboration"
+
+prompt = """
+Use the open_whiteboard tool to launch the Promptboard whiteboard window.
+"""
+```
+
+**Usage in Gemini CLI:**
+```
+/whiteboard
+/check-board {{args}}
+```
+
+### Arguments Support
+
+The `/check-board` command accepts optional arguments:
+
+**Claude Code:** Uses `$ARGUMENTS` placeholder
+```markdown
+$ARGUMENTS
+
+Analyze the image and provide insights...
+```
+
+**Gemini CLI:** Uses `{{args}}` placeholder
+```toml
+prompt = """
+{{args}}
+
+Analyze the image and provide insights...
+"""
+```
+
+**Example:**
+```
+/check-board The red highlighted area seems incorrect
+```
+
+The AI will receive your message along with the whiteboard image and provide focused analysis.
+
+---
+
+## 🔍 How It Works
 
 ### Architecture
 
@@ -121,6 +341,41 @@ Promptboard GUI (Electron)
 - Managed by Electron's Single Instance Lock
 
 ## Troubleshooting
+
+### npm Installation Issues
+
+**"npx promptboard" fails**
+
+**Cause:** Network issues or npm registry problems
+
+**Solutions:**
+1. Check internet connection
+2. Try with verbose logging: `npx -y promptboard --verbose`
+3. Clear npm cache: `npm cache clean --force`
+4. Try installing globally first: `npm install -g promptboard`
+
+**Binary download fails during postinstall**
+
+**Cause:** GitHub Releases not accessible or no binary for your platform
+
+**Solutions:**
+1. Check if release exists: Visit https://github.com/pjueon/promptboard/releases/latest
+2. Manually download and extract to `node_modules/promptboard/binaries/`
+3. PromptBoard will still work as MCP server (CLI only)
+
+**"Module not found" errors**
+
+**Cause:** Incomplete installation
+
+**Solutions:**
+```bash
+# Reinstall the package
+npm uninstall -g promptboard
+npm install -g promptboard
+
+# Or use npx (no installation needed)
+npx -y promptboard
+```
 
 ### "Connection closed" Error
 
