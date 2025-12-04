@@ -19,7 +19,7 @@
   ],
   "main": "dist-electron/main/index.mjs",
   "bin": {
-    "promptboard": "./dist/mcp-bridge.cjs"
+    "promptboard": "./scripts/cli.mjs"
   },
   "scripts": {
     "dev": "vite",
