@@ -160,6 +160,7 @@
     "dist/mcp-bridge.cjs",
     "dist/mcp-bridge.cjs.map",
     "scripts/download-binary.js",
-    "binaries/"
+    "scripts/cli.mjs",
+    "binaries/.gitkeep"
   ]
 }
