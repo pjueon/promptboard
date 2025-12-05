@@ -175,18 +175,37 @@ function setupLineTool() {
     fabricCanvas!.add(currentShape);
   };
   
-mouseMoveHandler = (e: fabric.IEvent) => {
+  mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
+    let targetX = pointer.x;
+    let targetY = pointer.y;
+
+    // Snap to 45 degrees if Shift is pressed
+    if ((e.e as MouseEvent).shiftKey) {
+      const dx = targetX - startX;
+      const dy = targetY - startY;
+      
+      if (dx !== 0 || dy !== 0) {
+        const angle = Math.atan2(dy, dx);
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        // Snap to 45 degrees (PI/4)
+        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+        
+        targetX = startX + length * Math.cos(snapAngle);
+        targetY = startY + length * Math.sin(snapAngle);
+      }
+    }
+
     (currentShape as fabric.Line).set({
-      x2: pointer.x,
-      y2: pointer.y,
+      x2: targetX,
+      y2: targetY,
     });
     
     fabricCanvas!.renderAll();
-  };
-  
+  };  
   mouseUpHandler = () => {
     if (!isDrawing) return;
     
@@ -254,24 +273,30 @@ function setupRectangleTool() {
     fabricCanvas!.add(currentShape);
   };
   
-mouseMoveHandler = (e: fabric.IEvent) => {
+  mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
-    const width = pointer.x - startX;
-    const height = pointer.y - startY;
+    let width = pointer.x - startX;
+    let height = pointer.y - startY;
+    
+    // Constrain to square if Shift is pressed
+    if ((e.e as MouseEvent).shiftKey) {
+      const size = Math.max(Math.abs(width), Math.abs(height));
+      width = width < 0 ? -size : size;
+      height = height < 0 ? -size : size;
+    }
     
     // Handle negative dimensions (dragging left or up)
     (currentShape as fabric.Rect).set({
-      left: width < 0 ? pointer.x : startX,
-      top: height < 0 ? pointer.y : startY,
+      left: width < 0 ? startX + width : startX,
+      top: height < 0 ? startY + height : startY,
       width: Math.abs(width),
       height: Math.abs(height),
     });
     
     fabricCanvas!.renderAll();
-  };
-  
+  };  
   mouseUpHandler = () => {
     if (!isDrawing) return;
     
@@ -886,6 +911,7 @@ onMounted(() => {
     isDrawingMode: false, // Will be set by applyToolState
     targetFindTolerance: 10, // Increase click detection area (pixels)
     perPixelTargetFind: true, // Enable precise pixel detection
+    uniformScaling: false, // Default to free resizing, Shift to preserve aspect ratio
     // Custom cursors for object manipulation
     hoverCursor: 'move', // Cursor when hovering over an object
     moveCursor: 'move', // Cursor when moving an object
