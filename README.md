@@ -118,73 +118,7 @@ This creates `.gemini/commands/`:
 
 ## 📦 Alternative Installation Methods
 
-### Method 1: Download from GitHub Releases
-
-1. **Download the latest release:**
-   - Visit [Releases](https://github.com/pjueon/promptboard/releases/latest)
-   - Download the appropriate file for your OS:
-     - Windows: `PromptBoard-x.x.x-win.zip`
-     - macOS: `PromptBoard-x.x.x-mac.zip` (Intel/Apple Silicon Universal)
-     - Linux: `PromptBoard-x.x.x-linux.zip`
-
-2. **Extract the archive:**
-   ```bash
-   # Windows (PowerShell)
-   Expand-Archive PromptBoard-0.1.0-win.zip -DestinationPath C:\PromptBoard
-   
-   # macOS/Linux
-   unzip PromptBoard-0.1.0-mac.zip -d ~/PromptBoard
-   ```
-
-3. **Configure MCP:**
-   ```json
-   {
-     "mcpServers": {
-       "promptboard": {
-         "command": "node",
-         "args": ["C:\\PromptBoard\\mcp-bridge.cjs"]
-       }
-     }
-   }
-   ```
-   
-   On macOS/Linux, update the path accordingly (e.g., `/Users/username/PromptBoard/mcp-bridge.cjs`)
-
-### Method 2: Build from Source
-
-1. **Clone and build:**
-   ```bash
-   git clone https://github.com/pjueon/promptboard.git
-   cd promptboard
-   npm install
-   cd apps/gui
-   npm run build
-   ```
-
-2. **Configure MCP:**
-   ```json
-   {
-     "mcpServers": {
-       "promptboard": {
-         "command": "node",
-         "args": ["/absolute/path/to/promptboard/apps/gui/dist/mcp-bridge.cjs"]
-       }
-     }
-   }
-   ```
-
-3. **Alternative: Use npm script:**
-   ```json
-   {
-     "mcpServers": {
-       "promptboard": {
-         "command": "npm",
-         "args": ["run", "mcp"],
-         "cwd": "/absolute/path/to/promptboard/apps/gui"
-       }
-     }
-   }
-   ```
+For detailed installation instructions, including manual setup and building from source, please refer to the **[MCP Setup Guide](./doc/mcp-setup.md)**.
 
 ---
 
@@ -203,4 +137,4 @@ This creates `.gemini/commands/`:
 
 ### User Guides
 - **[MCP Setup Guide](./doc/mcp-setup.md)** - Installation and configuration
-- **[Deployment Guide](./doc/deployment-guide.md)** - Build and deployment instructions
+- **[MCP Architecture](./doc/mcp-architecture.md)** - Internal architecture details
