@@ -170,6 +170,7 @@ function setupLineTool() {
       hasBorders: false,
       hasControls: false,
       perPixelTargetFind: true,
+      strokeUniform: true, // Maintain stroke width when scaling
     });
     
     fabricCanvas!.add(currentShape);
