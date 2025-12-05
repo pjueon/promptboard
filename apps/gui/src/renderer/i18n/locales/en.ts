@@ -6,7 +6,7 @@ export default {
       eraser: 'Eraser',
       line: 'Line',
       rectangle: 'Rectangle',
-      circle: 'Circle',
+      ellipse: 'Ellipse',
       text: 'Text',
     },
     color: 'Color',

@@ -333,7 +333,7 @@ function setupRectangleTool() {
 }
 
 /**
- * Setup circle drawing
+ * Setup ellipse tool (formerly circle)
  */
 function setupCircleTool() {
   if (!fabricCanvas) return;
@@ -349,10 +349,11 @@ function setupCircleTool() {
     // Disable canvas selection during drawing
     fabricCanvas!.selection = false;
     
-    currentShape = new fabric.Circle({
+    currentShape = new fabric.Ellipse({
       left: startX,
       top: startY,
-      radius: 0,
+      rx: 0,
+      ry: 0,
       stroke: toolbarStore.color,
       strokeWidth: toolbarStore.strokeWidth,
       fill: 'rgba(0,0,0,0.01)', // Nearly transparent but detectable
@@ -360,23 +361,35 @@ function setupCircleTool() {
       evented: false,
       hasBorders: false,
       hasControls: false,
-      originX: 'center',
-      originY: 'center',
+      originX: 'left',
+      originY: 'top',
     });
     
     fabricCanvas!.add(currentShape);
   };
   
-  mouseMoveHandler =  (e: fabric.IEvent) => {
+  mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
-    const radius = Math.sqrt(
-      Math.pow(pointer.x - startX, 2) + Math.pow(pointer.y - startY, 2)
-    );
+    let width = pointer.x - startX;
+    let height = pointer.y - startY;
     
-    (currentShape as fabric.Circle).set({
-      radius: radius,
+    // Shift key -> Circle (equal width/height)
+    if ((e.e as MouseEvent).shiftKey) {
+       const maxDim = Math.max(Math.abs(width), Math.abs(height));
+       width = width < 0 ? -maxDim : maxDim;
+       height = height < 0 ? -maxDim : maxDim;
+    }
+    
+    const rx = Math.abs(width) / 2;
+    const ry = Math.abs(height) / 2;
+
+    (currentShape as fabric.Ellipse).set({
+      left: width < 0 ? startX + width : startX,
+      top: height < 0 ? startY + height : startY,
+      rx: rx,
+      ry: ry,
     });
     
     fabricCanvas!.renderAll();
@@ -795,7 +808,7 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
     case 'rectangle':
       setupRectangleTool();
       break;
-    case 'circle':
+    case 'ellipse':
       setupCircleTool();
       break;
     case 'text':
