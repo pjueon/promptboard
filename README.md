@@ -1,10 +1,9 @@
 # 🎨 PromptBoard
 
-> **Visual Context Buffer for AI Agents**
+> **The Shared Whiteboard for AI Agents via MCP.**
 
-**PromptBoard provides a whiteboard to share visual context with AI Agents.**
-
-Stop describing UI bugs, architecture diagrams, or data flows in text. Just **snap**, **sketch**, and **send** it to your AI agent via MCP (Model Context Protocol).
+Paste screenshots, highlight specific details, and share visual context directly via MCP.
+Stop saving images to files. Just copy, paste, mark, and ask.
 
 ---
 
