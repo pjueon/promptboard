@@ -116,10 +116,6 @@ This creates `.gemini/commands/`:
 
 </details>
 
----
-
-## 📦 Alternative Installation Methods
-
 For detailed installation instructions, including manual setup and building from source, please refer to the **[MCP Setup Guide](./doc/mcp-setup.md)**.
 
 ---
