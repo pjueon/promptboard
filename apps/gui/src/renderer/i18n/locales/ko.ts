@@ -6,7 +6,7 @@ export default {
       eraser: '지우개',
       line: '직선',
       rectangle: '사각형',
-      circle: '원',
+      ellipse: '타원',
       text: '텍스트',
     },
     color: '색상',

@@ -6,7 +6,7 @@ export default {
       eraser: '消しゴム',
       line: '直線',
       rectangle: '四角形',
-      circle: '円',
+      ellipse: '楕円',
       text: 'テキスト',
     },
     color: '色',

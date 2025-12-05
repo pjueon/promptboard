@@ -135,7 +135,7 @@ const tools = [
   { id: 'eraser' as Tool, label: () => t('toolbar.tools.eraser'), icon: Eraser },
   { id: 'line' as Tool, label: () => t('toolbar.tools.line'), icon: Minus },
   { id: 'rectangle' as Tool, label: () => t('toolbar.tools.rectangle'), icon: Square },
-  { id: 'circle' as Tool, label: () => t('toolbar.tools.circle'), icon: Circle },
+  { id: 'ellipse' as Tool, label: () => t('toolbar.tools.ellipse'), icon: Circle },
   { id: 'text' as Tool, label: () => t('toolbar.tools.text'), icon: Type },
 ];
 

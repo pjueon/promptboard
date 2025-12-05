@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 
-export type Tool = 'pen' | 'eraser' | 'select' | 'line' | 'rectangle' | 'circle' | 'text';
+export type Tool = 'pen' | 'eraser' | 'select' | 'line' | 'rectangle' | 'ellipse' | 'text';
 
 export const useToolbarStore = defineStore('toolbar', () => {
   // State

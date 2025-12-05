@@ -170,23 +170,43 @@ function setupLineTool() {
       hasBorders: false,
       hasControls: false,
       perPixelTargetFind: true,
+      strokeUniform: true, // Maintain stroke width when scaling
     });
     
     fabricCanvas!.add(currentShape);
   };
   
-mouseMoveHandler = (e: fabric.IEvent) => {
+  mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
+    let targetX = pointer.x;
+    let targetY = pointer.y;
+
+    // Snap to 45 degrees if Shift is pressed
+    if ((e.e as MouseEvent).shiftKey) {
+      const dx = targetX - startX;
+      const dy = targetY - startY;
+      
+      if (dx !== 0 || dy !== 0) {
+        const angle = Math.atan2(dy, dx);
+        const length = Math.sqrt(dx * dx + dy * dy);
+        
+        // Snap to 45 degrees (PI/4)
+        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+        
+        targetX = startX + length * Math.cos(snapAngle);
+        targetY = startY + length * Math.sin(snapAngle);
+      }
+    }
+
     (currentShape as fabric.Line).set({
-      x2: pointer.x,
-      y2: pointer.y,
+      x2: targetX,
+      y2: targetY,
     });
     
     fabricCanvas!.renderAll();
-  };
-  
+  };  
   mouseUpHandler = () => {
     if (!isDrawing) return;
     
@@ -254,24 +274,30 @@ function setupRectangleTool() {
     fabricCanvas!.add(currentShape);
   };
   
-mouseMoveHandler = (e: fabric.IEvent) => {
+  mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
-    const width = pointer.x - startX;
-    const height = pointer.y - startY;
+    let width = pointer.x - startX;
+    let height = pointer.y - startY;
+    
+    // Constrain to square if Shift is pressed
+    if ((e.e as MouseEvent).shiftKey) {
+      const size = Math.max(Math.abs(width), Math.abs(height));
+      width = width < 0 ? -size : size;
+      height = height < 0 ? -size : size;
+    }
     
     // Handle negative dimensions (dragging left or up)
     (currentShape as fabric.Rect).set({
-      left: width < 0 ? pointer.x : startX,
-      top: height < 0 ? pointer.y : startY,
+      left: width < 0 ? startX + width : startX,
+      top: height < 0 ? startY + height : startY,
       width: Math.abs(width),
       height: Math.abs(height),
     });
     
     fabricCanvas!.renderAll();
-  };
-  
+  };  
   mouseUpHandler = () => {
     if (!isDrawing) return;
     
@@ -308,7 +334,7 @@ mouseMoveHandler = (e: fabric.IEvent) => {
 }
 
 /**
- * Setup circle drawing
+ * Setup ellipse tool (formerly circle)
  */
 function setupCircleTool() {
   if (!fabricCanvas) return;
@@ -324,10 +350,11 @@ function setupCircleTool() {
     // Disable canvas selection during drawing
     fabricCanvas!.selection = false;
     
-    currentShape = new fabric.Circle({
+    currentShape = new fabric.Ellipse({
       left: startX,
       top: startY,
-      radius: 0,
+      rx: 0,
+      ry: 0,
       stroke: toolbarStore.color,
       strokeWidth: toolbarStore.strokeWidth,
       fill: 'rgba(0,0,0,0.01)', // Nearly transparent but detectable
@@ -335,23 +362,35 @@ function setupCircleTool() {
       evented: false,
       hasBorders: false,
       hasControls: false,
-      originX: 'center',
-      originY: 'center',
+      originX: 'left',
+      originY: 'top',
     });
     
     fabricCanvas!.add(currentShape);
   };
   
-  mouseMoveHandler =  (e: fabric.IEvent) => {
+  mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
-    const radius = Math.sqrt(
-      Math.pow(pointer.x - startX, 2) + Math.pow(pointer.y - startY, 2)
-    );
+    let width = pointer.x - startX;
+    let height = pointer.y - startY;
     
-    (currentShape as fabric.Circle).set({
-      radius: radius,
+    // Shift key -> Circle (equal width/height)
+    if ((e.e as MouseEvent).shiftKey) {
+       const maxDim = Math.max(Math.abs(width), Math.abs(height));
+       width = width < 0 ? -maxDim : maxDim;
+       height = height < 0 ? -maxDim : maxDim;
+    }
+    
+    const rx = Math.abs(width) / 2;
+    const ry = Math.abs(height) / 2;
+
+    (currentShape as fabric.Ellipse).set({
+      left: width < 0 ? startX + width : startX,
+      top: height < 0 ? startY + height : startY,
+      rx: rx,
+      ry: ry,
     });
     
     fabricCanvas!.renderAll();
@@ -770,7 +809,7 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
     case 'rectangle':
       setupRectangleTool();
       break;
-    case 'circle':
+    case 'ellipse':
       setupCircleTool();
       break;
     case 'text':
@@ -886,6 +925,7 @@ onMounted(() => {
     isDrawingMode: false, // Will be set by applyToolState
     targetFindTolerance: 10, // Increase click detection area (pixels)
     perPixelTargetFind: true, // Enable precise pixel detection
+    uniformScaling: false, // Default to free resizing, Shift to preserve aspect ratio
     // Custom cursors for object manipulation
     hoverCursor: 'move', // Cursor when hovering over an object
     moveCursor: 'move', // Cursor when moving an object
