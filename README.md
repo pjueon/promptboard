@@ -5,6 +5,9 @@
 Paste screenshots, highlight specific details, and share visual context directly via MCP.
 Stop saving images to files. Just copy, paste, mark, and ask.
 
+
+**Demo**: 
+
 https://github.com/user-attachments/assets/3a07ca9d-d989-4d6c-aef1-4eebbd6d0cca
 
 
