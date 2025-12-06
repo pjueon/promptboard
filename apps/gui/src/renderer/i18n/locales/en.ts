@@ -28,7 +28,7 @@ export default {
       dark: 'Dark',
       autoSave: 'Auto-save',
       autoSaveEnabled: 'Enable auto-save',
-      autoSaveInterval: 'Save interval (seconds)',
+      autoSaveDebounce: 'Save delay (milliseconds)',
       lastSaved: 'Last saved',
       never: 'Never',
     },

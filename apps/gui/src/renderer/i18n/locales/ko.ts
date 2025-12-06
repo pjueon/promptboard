@@ -28,7 +28,7 @@ export default {
       dark: '다크',
       autoSave: '자동 저장',
       autoSaveEnabled: '자동 저장 활성화',
-      autoSaveInterval: '저장 간격 (초)',
+      autoSaveDebounce: '저장 지연 시간 (밀리초)',
       lastSaved: '마지막 저장',
       never: '없음',
     },

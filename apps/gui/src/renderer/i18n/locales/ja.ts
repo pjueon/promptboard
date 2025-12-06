@@ -28,7 +28,7 @@ export default {
       dark: 'ダーク',
       autoSave: 'オートセーブ',
       autoSaveEnabled: 'オートセーブを有効にする',
-      autoSaveInterval: '保存間隔（秒）',
+      autoSaveDebounce: '保存遅延時間（ミリ秒）',
       lastSaved: '最終保存',
       never: 'なし',
     },

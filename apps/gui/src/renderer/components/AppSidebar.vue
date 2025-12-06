@@ -102,15 +102,16 @@
             v-if="autoSaveStore.autoSave"
             class="setting-group"
           >
-            <label class="setting-label">{{ t('sidebar.settings.autoSaveInterval') }}</label>
+            <label class="setting-label">{{ t('sidebar.settings.autoSaveDebounce') }}</label>
             <input
               type="number"
               class="interval-input"
-              :value="autoSaveStore.autoSaveInterval"
-              min="10"
-              step="5"
-              @change="(e) => autoSaveStore.setAutoSaveInterval(Number((e.target as HTMLInputElement).value))"
+              :value="autoSaveStore.autoSaveDebounceMs"
+              min="100"
+              step="100"
+              @change="(e) => autoSaveStore.setAutoSaveDebounce(Number((e.target as HTMLInputElement).value))"
             >
+            <span class="unit-label">ms</span>
           </div>
 
           <div

@@ -5,7 +5,7 @@ export interface AppSettings {
   theme: 'light' | 'dark';
   locale: 'en' | 'ko' | 'ja';
   autoSave: boolean;
-  autoSaveInterval: number;
+  autoSaveDebounceMs: number;
 }
 
 export interface WhiteboardState {

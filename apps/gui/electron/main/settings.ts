@@ -6,14 +6,14 @@ export interface AppSettings {
   theme: 'light' | 'dark';
   locale: 'en' | 'ko' | 'ja';
   autoSave: boolean;
-  autoSaveInterval: number; // seconds
+  autoSaveDebounceMs: number; // milliseconds
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
   theme: 'light',
   locale: 'en',
   autoSave: true,
-  autoSaveInterval: 30,
+  autoSaveDebounceMs: 1000, // 1 second debounce
 };
 
 /**
@@ -39,26 +39,33 @@ function getSettingsPath(): string {
  */
 export function loadSettings(): AppSettings {
   const settingsPath = getSettingsPath();
-  
+
   try {
     if (fs.existsSync(settingsPath)) {
       const data = fs.readFileSync(settingsPath, 'utf-8');
       const settings = JSON.parse(data);
-      
+
+      // Migrate old autoSaveInterval to autoSaveDebounceMs
+      if ('autoSaveInterval' in settings && !('autoSaveDebounceMs' in settings)) {
+        // Old format detected, use default debounce time
+        settings.autoSaveDebounceMs = DEFAULT_SETTINGS.autoSaveDebounceMs;
+        delete settings.autoSaveInterval;
+      }
+
       // Validate settings
       const validTheme = settings.theme === 'light' || settings.theme === 'dark';
       const validLocale = settings.locale === 'en' || settings.locale === 'ko' || settings.locale === 'ja';
       const validAutoSave = typeof settings.autoSave === 'boolean';
-      const validInterval = typeof settings.autoSaveInterval === 'number' && settings.autoSaveInterval > 0;
+      const validDebounce = typeof settings.autoSaveDebounceMs === 'number' && settings.autoSaveDebounceMs > 0;
 
-      if (validTheme && validLocale && validAutoSave && validInterval) {
+      if (validTheme && validLocale && validAutoSave && validDebounce) {
         return settings;
       }
     }
   } catch (error) {
     console.error('Failed to load settings:', error);
   }
-  
+
   return { ...DEFAULT_SETTINGS };
 }
 
