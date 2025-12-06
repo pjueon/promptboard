@@ -1,0 +1,86 @@
+name: Reusable Build & Package
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        required: true
+        type: string
+        description: 'Operating System to build on (ubuntu-latest, windows-latest, macos-latest)'
+      upload_artifacts:
+        required: false
+        type: boolean
+        default: true
+        description: 'Whether to upload build artifacts'
+
+jobs:
+  build:
+    runs-on: ${{ inputs.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # --- System Dependencies (Linux only) ---
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+
+      # --- Node Dependencies & Rollup Fixes ---
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install platform-specific Rollup (Linux)
+        if: runner.os == 'Linux'
+        run: npm install --no-save @rollup/rollup-linux-x64-gnu
+
+      - name: Install platform-specific Rollup (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          if [ "$(uname -m)" = "arm64" ]; then
+            npm install --no-save @rollup/rollup-darwin-arm64
+          else
+            npm install --no-save @rollup/rollup-darwin-x64
+          fi
+
+      - name: Install platform-specific Rollup (Windows)
+        if: runner.os == 'Windows'
+        run: npm install --no-save @rollup/rollup-win32-x64-msvc
+
+      # --- Build ---
+      - name: Build application
+        run: npm run build
+        working-directory: ./apps/gui
+
+      # --- Package (Electron Builder) ---
+      - name: Package application (Linux)
+        if: runner.os == 'Linux'
+        run: npx electron-builder --linux zip --x64 --publish never
+        working-directory: ./apps/gui
+
+      - name: Package application (macOS)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac zip --x64 --arm64 --publish never
+        working-directory: ./apps/gui
+
+      - name: Package application (Windows)
+        if: runner.os == 'Windows'
+        run: npx electron-builder --win zip --x64 --publish never
+        working-directory: ./apps/gui
+
+      # --- Artifact Upload ---
+      - name: Upload artifacts
+        if: inputs.upload_artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ runner.os }}
+          path: |
+            apps/gui/release/*.zip
+          retention-days: 7
