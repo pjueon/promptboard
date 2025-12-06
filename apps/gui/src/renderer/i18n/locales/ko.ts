@@ -45,8 +45,8 @@ export default {
       selectionClipboard: '선택 및 클립보드',
       about: '정보',
       version: '버전',
-      description: 'AI 에이전트를 위한 비주얼 컨텍스트 버퍼',
-      subtitle: 'MCP(Model Context Protocol)를 통해 AI와 시각적 컨텍스트 공유',
+      description: 'AI와 함께 쓰는 화이트보드',
+      subtitle: '스크린샷을 붙여넣고, 표시하고, MCP로 AI와 공유하세요',
     },
     shortcuts: {
       undo: '실행 취소',

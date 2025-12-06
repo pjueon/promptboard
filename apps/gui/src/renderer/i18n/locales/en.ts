@@ -45,8 +45,8 @@ export default {
       selectionClipboard: 'Selection & Clipboard',
       about: 'About',
       version: 'Version',
-      description: 'Visual Context Buffer for AI Agents',
-      subtitle: 'Share visual context with AI through MCP (Model Context Protocol)',
+      description: 'Shared Whiteboard for AI Agents',
+      subtitle: 'Paste screenshots, mark them up, and share with AI through MCP',
     },
     shortcuts: {
       undo: 'Undo',

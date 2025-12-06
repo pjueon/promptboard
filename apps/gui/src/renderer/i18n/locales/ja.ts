@@ -45,8 +45,8 @@ export default {
       selectionClipboard: '選択とクリップボード',
       about: '情報',
       version: 'バージョン',
-      description: 'AIエージェント用ビジュアルコンテキストバッファ',
-      subtitle: 'MCP(Model Context Protocol)を通じてAIと視覚的コンテキストを共有',
+      description: 'AIと共有できるホワイトボード',
+      subtitle: 'スクリーンショットを貼り付けて、書き込んで、MCPでAIと共有。',
     },
     shortcuts: {
       undo: '元に戻す',
