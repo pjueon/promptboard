@@ -191,9 +191,11 @@ npx electron-builder
 ```
 
 **Output:** `apps/gui/release/`
-- Windows: `win-unpacked/PromptBoard.exe`
-- macOS: `mac/PromptBoard.app` or `mac-arm64/PromptBoard.app`
-- Linux: `linux-unpacked/promptboard`
+- **Windows:** `PromptBoard-x.x.x-win.zip` (and `win-unpacked/`)
+- **macOS:** `PromptBoard-x.x.x-mac.zip`
+- **Linux:** `PromptBoard-x.x.x-linux.zip`
+
+> **Note:** This project uses ZIP packaging for portability. No installers (setup.exe, dmg, deb) are generated.
 
 ---
 
@@ -310,35 +312,7 @@ The AI will receive your message along with the whiteboard image and provide foc
 
 ## 🔍 How It Works
 
-### Architecture
-
-```
-AI Client (Claude/Gemini)
-  ↕ stdio (JSON-RPC)
-MCP Bridge Server (Node.js)
-  ↕ WebSocket
-Promptboard GUI (Electron)
-```
-
-### Process Flow
-
-1. **AI asks to open whiteboard**
-   - MCP Bridge receives `open_whiteboard` tool call
-   - Bridge spawns `Promptboard.exe --ws-port=PORT`
-   - Electron connects to Bridge via WebSocket
-   - Window appears on screen
-
-2. **AI asks for whiteboard content**
-   - MCP Bridge receives `get_whiteboard` tool call
-   - Bridge sends `getImage` command via WebSocket
-   - Electron captures canvas as PNG
-   - Bridge returns Base64 image to AI
-
-### Single Instance
-
-- Only one Promptboard window can run at a time
-- Multiple "open" requests focus existing window
-- Managed by Electron's Single Instance Lock
+For a detailed explanation of the internal architecture, process flow, and communication protocols, please refer to the [Architecture Documentation](./mcp-architecture.md).
 
 ## Troubleshooting
 
@@ -483,12 +457,12 @@ cd apps/gui
 npx electron-builder
 
 # The packaged application is placed in `apps/gui/release/`.
-# The output varies by OS (e.g., `.exe` installer and `win-unpacked` on Windows).
+# The output is a ZIP archive for each platform (and `win-unpacked` folder on Windows).
 ```
 
 **Distribute:**
-- The installer file (e.g., `.exe`, `.dmg`) from the `release` directory.
-- Or, for a portable version, the unpacked folder (e.g., `win-unpacked`).
+- The ZIP file (e.g., `PromptBoard-0.1.0-win.zip`) from the `release` directory.
+- Or, for a portable version on Windows, the `win-unpacked` folder.
 
 ### Path Guidelines
 

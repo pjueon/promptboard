@@ -4,6 +4,14 @@
 
 Promptboard uses a **two-process architecture** to enable MCP integration while maintaining a clean separation between stdio communication (for AI clients) and GUI operations (Electron).
 
+```
+AI Client (claude code/gemini cli)
+  ↕ stdio (JSON-RPC)
+MCP Bridge Server (Node.js)
+  ↕ WebSocket
+Promptboard GUI (Electron)
+```
+
 ## Why Two Processes?
 
 **Problem:** Windows GUI applications (`.exe`) don't have functional stdio streams.
