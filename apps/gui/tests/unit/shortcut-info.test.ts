@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { mount, VueWrapper } from '@vue/test-utils';
 import AppSidebar from '../../src/renderer/components/AppSidebar.vue';
 import { createPinia, setActivePinia } from 'pinia';
+import pkg from '../../package.json';
 
 describe('Shortcut Info in Sidebar', () => {
   let wrapper: VueWrapper;
@@ -88,7 +89,7 @@ describe('Shortcut Info in Sidebar', () => {
     it('should display app version information', () => {
       const infoContent = wrapper.find('.info-content');
       expect(infoContent.text()).toContain('Version');
-      expect(infoContent.text()).toContain('0.1.0');
+      expect(infoContent.text()).toContain(pkg.version);
     });
   });
 });

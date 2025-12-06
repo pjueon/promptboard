@@ -186,7 +186,7 @@
 
           <div class="app-info">
             <h3>{{ t('sidebar.info.about') }}</h3>
-            <p><strong>{{ t('sidebar.info.version') }}:</strong> 0.1.0</p>
+            <p><strong>{{ t('sidebar.info.version') }}:</strong> {{ appVersion }}</p>
             <p><strong>PromptBoard</strong> - {{ t('sidebar.info.description') }}</p>
             <p>{{ t('sidebar.info.subtitle') }}</p>
           </div>
@@ -203,6 +203,9 @@ import { useThemeStore } from '../stores/themeStore';
 import { useLocaleStore } from '../stores/localeStore';
 import { useAutoSaveStore } from '../stores/autoSaveStore';
 import { useI18n } from 'vue-i18n';
+
+declare const __APP_VERSION__: string;
+const appVersion = __APP_VERSION__;
 
 const emit = defineEmits<{
   close: [];
