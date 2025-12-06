@@ -30,8 +30,8 @@ describe('Toolbar Component', () => {
     it('should call setTool with pen when pen button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
-      const buttons = wrapper.findAll('.tool-btn');
-      await buttons[0].trigger('click'); // First button is pen
+      const penBtn = wrapper.find('[data-testid="tool-btn-pen"]');
+      await penBtn.trigger('click');
       
       expect(spy).toHaveBeenCalledWith('pen');
     });
@@ -39,8 +39,8 @@ describe('Toolbar Component', () => {
     it('should call setTool with select when select button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
-      const buttons = wrapper.findAll('.tool-btn');
-      await buttons[1].trigger('click'); // Second button is select
+      const selectBtn = wrapper.find('[data-testid="tool-btn-select"]');
+      await selectBtn.trigger('click');
       
       expect(spy).toHaveBeenCalledWith('select');
     });
@@ -48,8 +48,8 @@ describe('Toolbar Component', () => {
     it('should call setTool with eraser when eraser button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
-      const buttons = wrapper.findAll('.tool-btn');
-      await buttons[2].trigger('click'); // Third button is eraser
+      const eraserBtn = wrapper.find('[data-testid="tool-btn-eraser"]');
+      await eraserBtn.trigger('click');
       
       expect(spy).toHaveBeenCalledWith('eraser');
     });
@@ -57,8 +57,8 @@ describe('Toolbar Component', () => {
     it('should call setTool with line when line button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
-      const buttons = wrapper.findAll('.tool-btn');
-      await buttons[3].trigger('click'); // Fourth button is line
+      const lineBtn = wrapper.find('[data-testid="tool-btn-line"]');
+      await lineBtn.trigger('click');
       
       expect(spy).toHaveBeenCalledWith('line');
     });
@@ -66,8 +66,8 @@ describe('Toolbar Component', () => {
     it('should call setTool with arrow when arrow button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
-      const buttons = wrapper.findAll('.tool-btn');
-      await buttons[4].trigger('click'); // Fifth button is arrow
+      const arrowBtn = wrapper.find('[data-testid="tool-btn-arrow"]');
+      await arrowBtn.trigger('click');
       
       expect(spy).toHaveBeenCalledWith('arrow');
     });
@@ -75,8 +75,8 @@ describe('Toolbar Component', () => {
     it('should call setTool with rectangle when rectangle button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
-      const buttons = wrapper.findAll('.tool-btn');
-      await buttons[5].trigger('click'); // Sixth button is rectangle
+      const rectangleBtn = wrapper.find('[data-testid="tool-btn-rectangle"]');
+      await rectangleBtn.trigger('click');
       
       expect(spy).toHaveBeenCalledWith('rectangle');
     });
@@ -84,8 +84,8 @@ describe('Toolbar Component', () => {
     it('should call setTool with ellipse when ellipse button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
-      const buttons = wrapper.findAll('.tool-btn');
-      await buttons[6].trigger('click'); // Seventh button is ellipse
+      const ellipseBtn = wrapper.find('[data-testid="tool-btn-ellipse"]');
+      await ellipseBtn.trigger('click');
       
       expect(spy).toHaveBeenCalledWith('ellipse');
     });
@@ -93,8 +93,8 @@ describe('Toolbar Component', () => {
     it('should call setTool with text when text button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
-      const buttons = wrapper.findAll('.tool-btn');
-      await buttons[7].trigger('click'); // Eighth button is text
+      const textBtn = wrapper.find('[data-testid="tool-btn-text"]');
+      await textBtn.trigger('click');
       
       expect(spy).toHaveBeenCalledWith('text');
     });
@@ -104,7 +104,7 @@ describe('Toolbar Component', () => {
     it('should call setColor when color input changes', async () => {
       const spy = vi.spyOn(store, 'setColor');
       
-      const colorPicker = wrapper.find('.color-picker');
+      const colorPicker = wrapper.find('[data-testid="color-picker"]');
       await colorPicker.setValue('#ff0000');
       
       expect(spy).toHaveBeenCalledWith('#ff0000');
@@ -114,12 +114,12 @@ describe('Toolbar Component', () => {
       store.setColor('#0000ff');
       await wrapper.vm.$nextTick();
       
-      const colorPicker = wrapper.find('.color-picker');
+      const colorPicker = wrapper.find('[data-testid="color-picker"]');
       expect((colorPicker.element as HTMLInputElement).value).toBe('#0000ff');
     });
 
     it('should update displayed color when store changes', async () => {
-      const colorPicker = wrapper.find('.color-picker');
+      const colorPicker = wrapper.find('[data-testid="color-picker"]');
       
       store.setColor('#00ff00');
       await wrapper.vm.$nextTick();
@@ -132,7 +132,7 @@ describe('Toolbar Component', () => {
     it('should call setStrokeWidth when slider changes', async () => {
       const spy = vi.spyOn(store, 'setStrokeWidth');
       
-      const slider = wrapper.find('.stroke-slider');
+      const slider = wrapper.find('[data-testid="stroke-slider"]');
       await slider.setValue('8');
       
       expect(spy).toHaveBeenCalledWith(8);
@@ -142,7 +142,7 @@ describe('Toolbar Component', () => {
       store.setStrokeWidth(10);
       await wrapper.vm.$nextTick();
       
-      const slider = wrapper.find('.stroke-slider');
+      const slider = wrapper.find('[data-testid="stroke-slider"]');
       expect((slider.element as HTMLInputElement).value).toBe('10');
     });
 
@@ -156,7 +156,7 @@ describe('Toolbar Component', () => {
     });
 
     it('should update label when slider changes', async () => {
-      const slider = wrapper.find('.stroke-slider');
+      const slider = wrapper.find('[data-testid="stroke-slider"]');
       await slider.setValue('15');
       await wrapper.vm.$nextTick();
       
@@ -168,67 +168,73 @@ describe('Toolbar Component', () => {
 
   describe('Active State', () => {
     it('should apply active class to pen button by default', () => {
-      const buttons = wrapper.findAll('.tool-btn');
-      expect(buttons[0].classes()).toContain('active');
+      const penBtn = wrapper.find('[data-testid="tool-btn-pen"]');
+      expect(penBtn.classes()).toContain('active');
     });
 
     it('should apply active class to currently selected tool', async () => {
       store.setTool('select');
       await wrapper.vm.$nextTick();
       
-      const buttons = wrapper.findAll('.tool-btn');
-      expect(buttons[1].classes()).toContain('active');
+      const selectBtn = wrapper.find('[data-testid="tool-btn-select"]');
+      expect(selectBtn.classes()).toContain('active');
     });
 
     it('should remove active class from other tools', async () => {
       store.setTool('ellipse');
       await wrapper.vm.$nextTick();
       
-      const buttons = wrapper.findAll('.tool-btn');
-      expect(buttons[0].classes()).not.toContain('active'); // pen
-      expect(buttons[6].classes()).toContain('active'); // ellipse
+      const penBtn = wrapper.find('[data-testid="tool-btn-pen"]');
+      const ellipseBtn = wrapper.find('[data-testid="tool-btn-ellipse"]');
+      expect(penBtn.classes()).not.toContain('active');
+      expect(ellipseBtn.classes()).toContain('active');
     });
 
     it('should update active state when tool changes', async () => {
-      const buttons = wrapper.findAll('.tool-btn');
+      const penBtn = wrapper.find('[data-testid="tool-btn-pen"]');
+      const rectangleBtn = wrapper.find('[data-testid="tool-btn-rectangle"]');
       
       // Initially pen is active
-      expect(buttons[0].classes()).toContain('active');
+      expect(penBtn.classes()).toContain('active');
       
       // Change to rectangle
       store.setTool('rectangle');
       await wrapper.vm.$nextTick();
       
-      expect(buttons[0].classes()).not.toContain('active');
-      expect(buttons[5].classes()).toContain('active');
+      expect(penBtn.classes()).not.toContain('active');
+      expect(rectangleBtn.classes()).toContain('active');
     });
   });
 
   describe('Rendering', () => {
-    it('should render 8 tool buttons', () => {
-      const toolButtons = wrapper.findAll('.tool-group')[0].findAll('.tool-btn');
-      expect(toolButtons).toHaveLength(8);
+    it('should render all 8 tool buttons', () => {
+      const tools = ['pen', 'select', 'eraser', 'line', 'arrow', 'rectangle', 'ellipse', 'text'];
+      tools.forEach(tool => {
+        const btn = wrapper.find(`[data-testid="tool-btn-${tool}"]`);
+        expect(btn.exists()).toBe(true);
+      });
     });
 
-    it('should render 11 buttons total including save, clear and settings buttons', () => {
-      const allButtons = wrapper.findAll('.tool-btn');
-      expect(allButtons).toHaveLength(11);
+    it('should render action buttons', () => {
+      expect(wrapper.find('[data-testid="save-btn"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="clear-btn"]').exists()).toBe(true);
+      expect(wrapper.find('[data-testid="settings-btn"]').exists()).toBe(true);
     });
 
     it('should render color picker input', () => {
-      const colorPicker = wrapper.find('.color-picker');
+      const colorPicker = wrapper.find('[data-testid="color-picker"]');
       expect(colorPicker.exists()).toBe(true);
       expect(colorPicker.attributes('type')).toBe('color');
     });
 
     it('should render stroke width slider', () => {
-      const slider = wrapper.find('.stroke-slider');
+      const slider = wrapper.find('[data-testid="stroke-slider"]');
       expect(slider.exists()).toBe(true);
       expect(slider.attributes('type')).toBe('range');
     });
 
     it('should have correct slider range', () => {
-      const slider = wrapper.find('.stroke-slider');
+      const slider = wrapper.find('[data-testid="stroke-slider"]');
       expect(slider.attributes('min')).toBe('1');
       expect(slider.attributes('max')).toBe('20');
     });
@@ -239,7 +245,7 @@ describe('Toolbar Component', () => {
       store.setTool('text');
       await wrapper.vm.$nextTick();
       
-      const fontSlider = wrapper.find('.font-slider');
+      const fontSlider = wrapper.find('[data-testid="font-slider"]');
       expect(fontSlider.exists()).toBe(true);
     });
 
@@ -247,7 +253,7 @@ describe('Toolbar Component', () => {
       store.setTool('pen');
       await wrapper.vm.$nextTick();
       
-      const fontSlider = wrapper.find('.font-slider');
+      const fontSlider = wrapper.find('[data-testid="font-slider"]');
       expect(fontSlider.exists()).toBe(false);
     });
 
@@ -258,7 +264,7 @@ describe('Toolbar Component', () => {
         store.setTool(tool);
         await wrapper.vm.$nextTick();
 
-        const fontSlider = wrapper.find('.font-slider');
+        const fontSlider = wrapper.find('[data-testid="font-slider"]');
         expect(fontSlider.exists()).toBe(false);
       }
     });
@@ -269,7 +275,7 @@ describe('Toolbar Component', () => {
       store.setTool('text');
       await wrapper.vm.$nextTick();
       
-      const fontSlider = wrapper.find('.font-slider');
+      const fontSlider = wrapper.find('[data-testid="font-slider"]');
       await fontSlider.setValue('36');
       
       expect(spy).toHaveBeenCalledWith(36);
@@ -280,7 +286,7 @@ describe('Toolbar Component', () => {
       store.setFontSize(24);
       await wrapper.vm.$nextTick();
       
-      const fontSlider = wrapper.find('.font-slider');
+      const fontSlider = wrapper.find('[data-testid="font-slider"]');
       expect((fontSlider.element as HTMLInputElement).value).toBe('24');
     });
 
@@ -298,7 +304,7 @@ describe('Toolbar Component', () => {
       store.setTool('text');
       await wrapper.vm.$nextTick();
       
-      const fontSlider = wrapper.find('.font-slider');
+      const fontSlider = wrapper.find('[data-testid="font-slider"]');
       expect(fontSlider.attributes('min')).toBe('12');
       expect(fontSlider.attributes('max')).toBe('72');
     });
@@ -306,12 +312,12 @@ describe('Toolbar Component', () => {
 
   describe('Clear All Button', () => {
     it('should render clear button', () => {
-      const clearBtn = wrapper.find('.clear-btn');
+      const clearBtn = wrapper.find('[data-testid="clear-btn"]');
       expect(clearBtn.exists()).toBe(true);
     });
 
     it('should show modal when clear button is clicked', async () => {
-      const clearBtn = wrapper.find('.clear-btn');
+      const clearBtn = wrapper.find('[data-testid="clear-btn"]');
       await clearBtn.trigger('click');
       await wrapper.vm.$nextTick();
 
@@ -320,7 +326,7 @@ describe('Toolbar Component', () => {
     });
 
     it('should emit clearAll event when modal confirms', async () => {
-      const clearBtn = wrapper.find('.clear-btn');
+      const clearBtn = wrapper.find('[data-testid="clear-btn"]');
       await clearBtn.trigger('click');
       await wrapper.vm.$nextTick();
 
@@ -333,7 +339,7 @@ describe('Toolbar Component', () => {
     });
 
     it('should close modal when cancel is clicked', async () => {
-      const clearBtn = wrapper.find('.clear-btn');
+      const clearBtn = wrapper.find('[data-testid="clear-btn"]');
       await clearBtn.trigger('click');
       await wrapper.vm.$nextTick();
 
@@ -348,7 +354,7 @@ describe('Toolbar Component', () => {
     });
 
     it('should not emit clearAll when cancel is clicked', async () => {
-      const clearBtn = wrapper.find('.clear-btn');
+      const clearBtn = wrapper.find('[data-testid="clear-btn"]');
       await clearBtn.trigger('click');
       await wrapper.vm.$nextTick();
 

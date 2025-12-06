@@ -4,7 +4,7 @@ import { createPinia, setActivePinia } from 'pinia';
 import WhiteboardCanvas from '../../src/renderer/components/WhiteboardCanvas.vue';
 import { useToolbarStore } from '../../src/renderer/stores/toolbarStore';
 
-describe('Eraser Tool', () => {
+describe('Eraser Tool - Toolbar Integration', () => {
   let wrapper: VueWrapper;
   let toolbarStore: ReturnType<typeof useToolbarStore>;
 
