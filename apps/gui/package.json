@@ -1,6 +1,6 @@
 {
   "name": "promptboard",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "type": "module",
   "description": "Visual Context Buffer MCP Server for AI Agents",
   "author": "Jueon Park",
