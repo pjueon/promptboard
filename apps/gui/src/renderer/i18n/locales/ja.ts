@@ -14,7 +14,13 @@ export default {
     width: '太さ',
     font: 'フォント',
     clear: 'すべてクリア',
+    save: '画像として保存',
     settings: '設定',
+  },
+  toast: {
+    saveSuccess: 'キャンバスが正常に保存されました！',
+    saveError: 'キャンバスの保存に失敗しました',
+    saveCanceled: '保存がキャンセルされました',
   },
   sidebar: {
     tabs: {
@@ -45,6 +51,7 @@ export default {
     shortcuts: {
       undo: '元に戻す',
       redo: 'やり直す',
+      save: 'キャンバスを保存',
       copy: '領域をコピー',
       paste: '画像を貼り付け',
       delete: '選択項目を削除',

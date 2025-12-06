@@ -155,6 +155,10 @@
                   <kbd class="shortcut-key">Ctrl+Y</kbd>
                 </div>
               </div>
+              <div class="shortcut-item">
+                <span class="shortcut-desc">{{ t('sidebar.shortcuts.save') }}</span>
+                <kbd class="shortcut-key">Ctrl+S</kbd>
+              </div>
             </div>
           </div>
 

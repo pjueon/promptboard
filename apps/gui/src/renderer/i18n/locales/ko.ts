@@ -14,7 +14,13 @@ export default {
     width: '두께',
     font: '글꼴',
     clear: '전체 지우기',
+    save: '이미지로 저장',
     settings: '설정',
+  },
+  toast: {
+    saveSuccess: '캔버스가 성공적으로 저장되었습니다!',
+    saveError: '캔버스 저장 실패',
+    saveCanceled: '저장 취소됨',
   },
   sidebar: {
     tabs: {
@@ -45,6 +51,7 @@ export default {
     shortcuts: {
       undo: '실행 취소',
       redo: '다시 실행',
+      save: '캔버스 저장',
       copy: '영역 복사',
       paste: '이미지 붙여넣기',
       delete: '선택 항목 삭제',
