@@ -60,8 +60,8 @@ const historyStore = useHistoryStore();
 const toastStore = useToastStore();
 const autoSaveStore = useAutoSaveStore();
 
-// Auto-save timer
-let autoSaveTimer: number | null = null;
+// Auto-save cleanup function
+let cleanupAutoSave: (() => void) | null = null;
 
 // Computed eraser cursor with dynamic size
 const getEraserCursor = () => {
@@ -1006,10 +1006,8 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     // Save initial snapshot
     saveCanvasSnapshot();
 
-    // Start auto-save timer
-    if (autoSaveStore.isEnabled) {
-      startAutoSave();
-    }
+    // Setup event-driven auto-save
+    setupAutoSave();
   });
 
   // Handle keyboard shortcuts
@@ -1148,40 +1146,16 @@ function getCanvasImage(): string | null {
 }
 
 /**
- * Auto-save canvas state
+ * Setup event-driven auto-save
  */
-async function performAutoSave() {
+function setupAutoSave() {
   if (!fabricCanvas || !autoSaveStore.isEnabled) return;
 
-  try {
-    const canvasData = fabricCanvas.toJSON();
-    await autoSaveStore.saveWhiteboardState(canvasData);
-  } catch (error) {
-    console.error('Auto-save failed:', error);
-  }
-}
-
-/**
- * Start auto-save timer
- */
-function startAutoSave() {
-  stopAutoSave();
-
-  if (!autoSaveStore.isEnabled) return;
-
-  autoSaveTimer = window.setInterval(() => {
-    performAutoSave();
-  }, autoSaveStore.intervalSeconds * 1000);
-}
-
-/**
- * Stop auto-save timer
- */
-function stopAutoSave() {
-  if (autoSaveTimer !== null) {
-    clearInterval(autoSaveTimer);
-    autoSaveTimer = null;
-  }
+  // Setup history watcher for auto-save
+  cleanupAutoSave = autoSaveStore.setupHistoryWatcher(
+    historyStore,
+    () => fabricCanvas!.toJSON()
+  );
 }
 
 /**
@@ -1207,15 +1181,12 @@ async function loadCanvasState() {
 // Watch auto-save settings changes
 watch(() => autoSaveStore.isEnabled, (enabled) => {
   if (enabled) {
-    startAutoSave();
+    setupAutoSave();
   } else {
-    stopAutoSave();
-  }
-});
-
-watch(() => autoSaveStore.intervalSeconds, () => {
-  if (autoSaveStore.isEnabled) {
-    startAutoSave();
+    if (cleanupAutoSave) {
+      cleanupAutoSave();
+      cleanupAutoSave = null;
+    }
   }
 });
 
@@ -1226,12 +1197,16 @@ defineExpose({
 });
 
 onBeforeUnmount(() => {
-  // Stop auto-save
-  stopAutoSave();
+  // Cleanup auto-save watcher
+  if (cleanupAutoSave) {
+    cleanupAutoSave();
+    cleanupAutoSave = null;
+  }
 
-  // Perform final auto-save
-  if (autoSaveStore.isEnabled) {
-    performAutoSave();
+  // Perform final immediate auto-save
+  if (autoSaveStore.isEnabled && fabricCanvas) {
+    const canvasData = fabricCanvas.toJSON();
+    autoSaveStore.performAutoSaveImmediately(canvasData);
   }
 
   if (fabricCanvas) {
