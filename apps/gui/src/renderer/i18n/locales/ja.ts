@@ -5,6 +5,7 @@ export default {
       select: '選択',
       eraser: '消しゴム',
       line: '直線',
+      arrow: '矢印',
       rectangle: '四角形',
       ellipse: '楕円',
       text: 'テキスト',

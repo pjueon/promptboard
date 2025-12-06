@@ -5,6 +5,7 @@ export default {
       select: 'Select',
       eraser: 'Eraser',
       line: 'Line',
+      arrow: 'Arrow',
       rectangle: 'Rectangle',
       ellipse: 'Ellipse',
       text: 'Text',
