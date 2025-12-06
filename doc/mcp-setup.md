@@ -45,7 +45,7 @@ No installation needed - `npx` will handle everything automatically.
 #### Claude Code
 
 ```bash
-claude mcp add promptboard npx -y promptboard
+claude mcp add promptboard "npx -y promptboard"
 ```
 
 **Custom Commands (Optional):**

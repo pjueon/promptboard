@@ -57,19 +57,7 @@ Restart Claude Desktop and test:
 <summary><b>Claude Code</b></summary>
 
 ```bash
-claude mcp add promptboard npx -y promptboard
-```
-
-Or manually edit `~/.claude/config.json`:
-```json
-{
-  "mcpServers": {
-    "promptboard": {
-      "command": "npx",
-      "args": ["-y", "promptboard"]
-    }
-  }
-}
+claude mcp add promptboard "npx -y promptboard"
 ```
 
 **Custom Commands (Optional):**
