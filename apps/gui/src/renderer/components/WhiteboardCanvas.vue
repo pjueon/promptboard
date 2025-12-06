@@ -24,6 +24,8 @@ interface ExtendedFabricCanvas extends fabric.Canvas {
   _resizeHandler?: () => void;
   _pasteHandler?: (e: ClipboardEvent) => void;
   _keydownHandler?: (e: KeyboardEvent) => void;
+  _dragoverHandler?: (e: DragEvent) => void;
+  _dropHandler?: (e: DragEvent) => void;
 }
 
 interface FabricObjectPrototype {
@@ -1092,6 +1094,84 @@ watch(() => toolbarStore.color, (newColor) => {
 });
 
 /**
+ * Add image to canvas from blob
+ * Common logic for paste and drag-drop
+ * @param blob - Image blob to add
+ * @param position - Optional position {x, y}. If not provided, image is centered
+ * @param source - Source of the image ('paste' or 'drop') for toast message
+ */
+function addImageToCanvas(blob: Blob, position?: { x: number; y: number }, source: 'paste' | 'drop' = 'paste') {
+  if (!fabricCanvas) return;
+
+  // Remove selection rectangle if exists
+  if (selectionRect) {
+    fabricCanvas.remove(selectionRect);
+    selectionRect = null;
+    fabricCanvas.renderAll();
+  }
+
+  // Read image as data URL
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    const dataUrl = event.target?.result as string;
+    
+    // Create Fabric.Image from data URL
+    fabric.Image.fromURL(dataUrl, (img) => {
+      if (!fabricCanvas) return;
+      
+      // Scale image to fit canvas (max 80% of canvas size)
+      const maxWidth = fabricCanvas.width! * 0.8;
+      const maxHeight = fabricCanvas.height! * 0.8;
+      
+      if (img.width! > maxWidth || img.height! > maxHeight) {
+        const scale = Math.min(
+          maxWidth / img.width!,
+          maxHeight / img.height!
+        );
+        img.scale(scale);
+      }
+      
+      // Position image
+      if (position) {
+        // Position at drop location
+        img.set({
+          left: position.x,
+          top: position.y,
+          originX: 'center',
+          originY: 'center',
+          hoverCursor: 'move',
+          moveCursor: 'move',
+        });
+      } else {
+        // Position at center
+        img.set({
+          left: fabricCanvas.width! / 2,
+          top: fabricCanvas.height! / 2,
+          originX: 'center',
+          originY: 'center',
+          hoverCursor: 'move',
+          moveCursor: 'move',
+        });
+      }
+      
+      // Disable drawing mode to allow image manipulation
+      fabricCanvas.isDrawingMode = false;
+      
+      // Add to canvas and select
+      fabricCanvas.add(img);
+      fabricCanvas.setActiveObject(img);
+      fabricCanvas.renderAll();
+      
+      // Show success message
+      const message = source === 'paste' ? 'Image pasted from clipboard' : 'Image added from file';
+      toastStore.success(message);
+    });
+  };
+  
+  reader.readAsDataURL(blob);
+}
+
+/**
  * Handle clipboard paste event
  * Adds images from clipboard to canvas
  */
@@ -1105,57 +1185,56 @@ const handlePaste = async (e: ClipboardEvent) => {
       const blob = items[i].getAsFile();
       if (!blob) continue;
 
-      // Remove selection rectangle if exists
-      if (selectionRect) {
-        fabricCanvas.remove(selectionRect);
-        selectionRect = null;
-        fabricCanvas.renderAll();
-      }
+      addImageToCanvas(blob, undefined, 'paste');
+      break; // Only process first image
+    }
+  }
+};
 
-      // Read image as data URL
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const dataUrl = event.target?.result as string;
-        
-        // Create Fabric.Image from data URL
-        fabric.Image.fromURL(dataUrl, (img) => {
-          if (!fabricCanvas) return;
-          
-          // Scale image to fit canvas (max 80% of canvas size)
-          const maxWidth = fabricCanvas.width! * 0.8;
-          const maxHeight = fabricCanvas.height! * 0.8;
-          
-          if (img.width! > maxWidth || img.height! > maxHeight) {
-            const scale = Math.min(
-              maxWidth / img.width!,
-              maxHeight / img.height!
-            );
-            img.scale(scale);
-          }
-          
-          // Position image at center
-          img.set({
-            left: fabricCanvas.width! / 2,
-            top: fabricCanvas.height! / 2,
-            originX: 'center',
-            originY: 'center',
-            hoverCursor: 'move',
-            moveCursor: 'move',
-          });
-          
-          // Disable drawing mode to allow image manipulation
-          fabricCanvas.isDrawingMode = false;
-          
-          // Add to canvas and select
-          fabricCanvas.add(img);
-          fabricCanvas.setActiveObject(img);
-          fabricCanvas.renderAll();
-          
-          toastStore.success('Image pasted from clipboard');
-        });
+/**
+ * Handle drag over event
+ * Allows files to be dropped on canvas
+ */
+const handleDragOver = (e: DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  // Set dropEffect to indicate copy operation
+  if (e.dataTransfer) {
+    e.dataTransfer.dropEffect = 'copy';
+  }
+};
+
+/**
+ * Handle drop event
+ * Adds dropped image files to canvas
+ */
+const handleDrop = (e: DragEvent) => {
+  e.preventDefault();
+  e.stopPropagation();
+  
+  const files = e.dataTransfer?.files;
+  if (!files || !fabricCanvas) return;
+
+  // Process first image file only
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    
+    // Check if file is an image
+    if (file.type.indexOf('image') !== -1) {
+      // Calculate drop position relative to canvas
+      const canvasRect = canvasEl.value?.getBoundingClientRect();
+      if (!canvasRect) {
+        addImageToCanvas(file, undefined, 'drop');
+        break;
+      }
+      
+      const position = {
+        x: e.clientX - canvasRect.left,
+        y: e.clientY - canvasRect.top,
       };
       
-      reader.readAsDataURL(blob);
+      addImageToCanvas(file, position, 'drop');
       break; // Only process first image
     }
   }
@@ -1354,9 +1433,17 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
   // Register paste event listener
   window.addEventListener('paste', handlePaste);
 
+  // Register drag and drop event listeners
+  if (canvasEl.value) {
+    canvasEl.value.addEventListener('dragover', handleDragOver);
+    canvasEl.value.addEventListener('drop', handleDrop);
+  }
+
   // Store handlers for cleanup
   fabricCanvas._resizeHandler = handleResize;
   fabricCanvas._pasteHandler = handlePaste;
+  fabricCanvas._dragoverHandler = handleDragOver;
+  fabricCanvas._dropHandler = handleDrop;
 });
 
 /**
@@ -1469,6 +1556,8 @@ onBeforeUnmount(() => {
     const resizeHandler = fabricCanvas._resizeHandler;
     const pasteHandler = fabricCanvas._pasteHandler;
     const keydownHandler = fabricCanvas._keydownHandler;
+    const dragoverHandler = fabricCanvas._dragoverHandler;
+    const dropHandler = fabricCanvas._dropHandler;
 
     if (resizeHandler) {
       window.removeEventListener('resize', resizeHandler);
@@ -1478,6 +1567,12 @@ onBeforeUnmount(() => {
     }
     if (keydownHandler) {
       document.removeEventListener('keydown', keydownHandler);
+    }
+    if (dragoverHandler && canvasEl.value) {
+      canvasEl.value.removeEventListener('dragover', dragoverHandler);
+    }
+    if (dropHandler && canvasEl.value) {
+      canvasEl.value.removeEventListener('drop', dropHandler);
     }
 
     // Clean up shape drawing handlers
