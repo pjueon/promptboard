@@ -210,9 +210,9 @@ describe('Toolbar Component', () => {
       expect(toolButtons).toHaveLength(8);
     });
 
-    it('should render 10 buttons total including clear and settings buttons', () => {
+    it('should render 11 buttons total including save, clear and settings buttons', () => {
       const allButtons = wrapper.findAll('.tool-btn');
-      expect(allButtons).toHaveLength(10);
+      expect(allButtons).toHaveLength(11);
     });
 
     it('should render color picker input', () => {

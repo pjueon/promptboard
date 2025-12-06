@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import fs from 'node:fs/promises'
 import { WebSocketBridge } from './ws-bridge.js'
 import { loadSettings, saveSettings, type AppSettings } from './settings.js'
 import { loadWhiteboardState, saveWhiteboardState, deleteWhiteboardState, type FabricCanvasData } from './whiteboard-state.js'
@@ -138,6 +139,52 @@ function setupIPCHandlers() {
 
   ipcMain.handle('whiteboard:delete-state', () => {
     return deleteWhiteboardState()
+  })
+
+  // Save canvas as image file
+  ipcMain.handle('whiteboard:save-as-file', async () => {
+    try {
+      const { filePath, canceled } = await dialog.showSaveDialog(mainWindow!, {
+        title: 'Save Canvas',
+        defaultPath: `whiteboard-${Date.now()}.png`,
+        filters: [
+          { name: 'PNG Image', extensions: ['png'] },
+          { name: 'JPEG Image', extensions: ['jpg', 'jpeg'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+      })
+
+      if (canceled || !filePath) {
+        return { success: false, canceled: true }
+      }
+
+      // Determine format from file extension
+      const ext = path.extname(filePath).toLowerCase()
+      const format = (ext === '.jpg' || ext === '.jpeg') ? 'jpeg' : 'png'
+
+      return { success: true, filePath, format }
+    } catch (error) {
+      console.error('Failed to save canvas as file:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
+  })
+
+  // Write image file
+  ipcMain.handle('whiteboard:write-image-file', async (_event, filePath: string, base64Image: string) => {
+    try {
+      const buffer = Buffer.from(base64Image, 'base64')
+      await fs.writeFile(filePath, buffer)
+      return { success: true }
+    } catch (error) {
+      console.error('Failed to write image file:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      }
+    }
   })
 }
 

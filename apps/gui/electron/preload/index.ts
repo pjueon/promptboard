@@ -31,6 +31,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     loadState: () => ipcRenderer.invoke('whiteboard:load-state') as Promise<WhiteboardState | null>,
     saveState: (canvasData: FabricCanvasData) => ipcRenderer.invoke('whiteboard:save-state', canvasData) as Promise<boolean>,
     deleteState: () => ipcRenderer.invoke('whiteboard:delete-state') as Promise<boolean>,
+    saveAsFile: () => ipcRenderer.invoke('whiteboard:save-as-file') as Promise<{ success: boolean; filePath?: string; format?: 'png' | 'jpeg'; canceled?: boolean; error?: string }>,
+    writeImageFile: (filePath: string, base64Image: string) => ipcRenderer.invoke('whiteboard:write-image-file', filePath, base64Image) as Promise<{ success: boolean; error?: string }>,
   },
 });
 
@@ -52,6 +54,8 @@ declare global {
         loadState: () => Promise<WhiteboardState | null>;
         saveState: (canvasData: FabricCanvasData) => Promise<boolean>;
         deleteState: () => Promise<boolean>;
+        saveAsFile: () => Promise<{ success: boolean; filePath?: string; format?: 'png' | 'jpeg'; canceled?: boolean; error?: string }>;
+        writeImageFile: (filePath: string, base64Image: string) => Promise<{ success: boolean; error?: string }>;
       };
     };
   }

@@ -1308,6 +1308,14 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
       }
     }
     
+    // Ctrl+S - Save canvas as file
+    if (e.ctrlKey && e.key === 's') {
+      e.preventDefault();
+      // Emit event to parent (App.vue) to handle save
+      const event = new CustomEvent('save-canvas-shortcut');
+      window.dispatchEvent(event);
+    }
+
     // Ctrl+Z - Undo
     if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
@@ -1316,9 +1324,9 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
         restoreSnapshot(snapshot);
       }
     }
-    
+
     // Ctrl+Shift+Z or Ctrl+Y - Redo
-    if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') || 
+    if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') ||
         (e.ctrlKey && e.key === 'y')) {
       e.preventDefault();
       const snapshot = historyStore.redo();
@@ -1367,24 +1375,25 @@ function clearCanvas() {
 }
 
 /**
- * Get canvas as Base64 PNG image
+ * Get canvas as Base64 image
  * Exposed to parent component and IPC
- * @returns Base64 encoded PNG (without data URL prefix) or null if canvas not initialized
+ * @param format - Image format ('png' or 'jpeg')
+ * @returns Base64 encoded image (without data URL prefix) or null if canvas not initialized
  */
-function getCanvasImage(): string | null {
+function getCanvasImage(format: 'png' | 'jpeg' = 'png'): string | null {
   if (!fabricCanvas) {
     return null;
   }
   
   try {
-    // Export canvas as PNG data URL
+    // Export canvas as data URL
     const dataUrl = fabricCanvas.toDataURL({
-      format: 'png',
-      quality: 1,
+      format: format,
+      quality: format === 'jpeg' ? 0.95 : 1,
     });
     
-    // Remove "data:image/png;base64," prefix
-    const base64 = dataUrl.replace(/^data:image\/png;base64,/, '');
+    // Remove data URL prefix (e.g., "data:image/png;base64," or "data:image/jpeg;base64,")
+    const base64 = dataUrl.replace(/^data:image\/(png|jpeg);base64,/, '');
     return base64;
   } catch (error) {
     console.error('Error converting canvas to image:', error);

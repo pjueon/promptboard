@@ -14,7 +14,13 @@ export default {
     width: 'Width',
     font: 'Font',
     clear: 'Clear All',
+    save: 'Save As Image',
     settings: 'Settings',
+  },
+  toast: {
+    saveSuccess: 'Canvas saved successfully!',
+    saveError: 'Failed to save canvas',
+    saveCanceled: 'Save canceled',
   },
   sidebar: {
     tabs: {
@@ -45,6 +51,7 @@ export default {
     shortcuts: {
       undo: 'Undo',
       redo: 'Redo',
+      save: 'Save canvas',
       copy: 'Copy region',
       paste: 'Paste image',
       delete: 'Delete selection',

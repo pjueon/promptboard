@@ -57,9 +57,20 @@
       >
     </div>
 
-    <!-- Clear All Button -->
+    <!-- Action Buttons -->
     <div class="tool-group ml-auto">
-      <button 
+      <button
+        class="tool-btn save-btn"
+        :title="t('toolbar.save')"
+        @click="handleSaveClick"
+      >
+        <Save
+          :size="20"
+          :stroke-width="2"
+        />
+      </button>
+
+      <button
         class="tool-btn clear-btn"
         :title="t('toolbar.clear')"
         @click="handleClearClick"
@@ -69,8 +80,8 @@
           :stroke-width="2"
         />
       </button>
-      
-      <button 
+
+      <button
         class="tool-btn"
         :title="t('toolbar.settings')"
         @click="handleSidebarToggle"
@@ -98,15 +109,16 @@ import { computed, ref } from 'vue';
 import { useToolbarStore, type Tool } from '../stores/toolbarStore';
 import { useI18n } from 'vue-i18n';
 import ConfirmModal from './ConfirmModal.vue';
-import { 
-  Pencil, 
-  MousePointer2, 
-  Eraser, 
-  Minus, 
+import {
+  Pencil,
+  MousePointer2,
+  Eraser,
+  Minus,
   ArrowRight,
-  Square, 
-  Circle, 
+  Square,
+  Circle,
   Type,
+  Save,
   Trash2,
   Settings
 } from 'lucide-vue-next';
@@ -123,9 +135,10 @@ const fontSize = computed(() => toolbarStore.fontSize);
 // Modal state
 const showClearModal = ref(false);
 
-// Define emit for clear event
+// Define emit for events
 const emit = defineEmits<{
   clearAll: [];
+  saveCanvas: [];
   toggleSidebar: [];
 }>();
 
@@ -159,6 +172,10 @@ function handleStrokeWidthChange(e: Event) {
 function handleFontSizeChange(e: Event) {
   const target = e.target as HTMLInputElement;
   toolbarStore.setFontSize(Number(target.value));
+}
+
+function handleSaveClick() {
+  emit('saveCanvas');
 }
 
 function handleClearClick() {
@@ -218,6 +235,17 @@ function handleSidebarToggle() {
   cursor: pointer;
   transition: all 0.15s;
   color: var(--color-text-secondary);
+}
+
+.save-btn {
+  background-color: #f0f9ff;
+  border-color: #93c5fd;
+  color: #2563eb;
+}
+
+.save-btn:hover {
+  background-color: #dbeafe;
+  border-color: #60a5fa;
 }
 
 .clear-btn {
