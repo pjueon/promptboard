@@ -7,6 +7,7 @@
         :key="tool.id"
         :class="['tool-btn', { active: currentTool === tool.id }]"
         :title="tool.label()"
+        :data-testid="`tool-btn-${tool.id}`"
         @click="handleToolChange(tool.id)"
       >
         <component
@@ -24,6 +25,7 @@
         type="color" 
         :value="color" 
         class="color-picker"
+        data-testid="color-picker"
         @input="handleColorChange"
       >
     </div>
@@ -37,6 +39,7 @@
         max="20" 
         :value="strokeWidth" 
         class="stroke-slider"
+        data-testid="stroke-slider"
         @input="handleStrokeWidthChange"
       >
     </div>
@@ -53,6 +56,7 @@
         max="72" 
         :value="fontSize" 
         class="font-slider"
+        data-testid="font-slider"
         @input="handleFontSizeChange"
       >
     </div>
@@ -62,6 +66,7 @@
       <button
         class="tool-btn save-btn"
         :title="t('toolbar.save')"
+        data-testid="save-btn"
         @click="handleSaveClick"
       >
         <Save
@@ -73,6 +78,7 @@
       <button
         class="tool-btn clear-btn"
         :title="t('toolbar.clear')"
+        data-testid="clear-btn"
         @click="handleClearClick"
       >
         <Trash2
@@ -84,6 +90,7 @@
       <button
         class="tool-btn"
         :title="t('toolbar.settings')"
+        data-testid="settings-btn"
         @click="handleSidebarToggle"
       >
         <Settings
