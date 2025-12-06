@@ -253,58 +253,33 @@ function setupLineTool() {
 function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
   if (!line || !triangle) return;
 
-  // Get line's original coordinates (these are absolute coordinates from when line was created)
-  const x1 = line.x1 || 0;
-  const y1 = line.y1 || 0;
-  const x2 = line.x2 || 0;
-  const y2 = line.y2 || 0;
+  // Use getPointByOrigin to get the actual transformed coordinates of the line endpoints
+  // This properly handles all transformations including negative scaling
+  const point1 = line.calcLinePoints();
+  
+  // Get transformation matrix to transform local coordinates to canvas coordinates
+  const transform = line.calcTransformMatrix();
+  
+  // Transform the line endpoints using the transformation matrix
+  const transformPoint = (x: number, y: number) => {
+    return fabric.util.transformPoint(
+      new fabric.Point(x, y),
+      transform
+    );
+  };
+  
+  const start = transformPoint(point1.x1, point1.y1);
+  const end = transformPoint(point1.x2, point1.y2);
 
-  // Calculate the original center (midpoint between x1,y1 and x2,y2)
-  const origCenterX = (x1 + x2) / 2;
-  const origCenterY = (y1 + y2) / 2;
-
-  // Get vectors from original center to endpoints
-  const dx1 = x1 - origCenterX;
-  const dy1 = y1 - origCenterY;
-  const dx2 = x2 - origCenterX;
-  const dy2 = y2 - origCenterY;
-
-  // Get the line's current center position
-  const centerX = line.left || 0;
-  const centerY = line.top || 0;
-
-  // Get transformation properties
-  const angle = (line.angle || 0) * Math.PI / 180;
-  const scaleX = line.scaleX || 1;
-  const scaleY = line.scaleY || 1;
-  const cos = Math.cos(angle);
-  const sin = Math.sin(angle);
-
-  // Transform endpoint 2 (where arrow head should be)
-  const scaledDx2 = dx2 * scaleX;
-  const scaledDy2 = dy2 * scaleY;
-  const rotatedDx2 = scaledDx2 * cos - scaledDy2 * sin;
-  const rotatedDy2 = scaledDx2 * sin + scaledDy2 * cos;
-
-  // Transform endpoint 1 (for angle calculation)
-  const scaledDx1 = dx1 * scaleX;
-  const scaledDy1 = dy1 * scaleY;
-  const rotatedDx1 = scaledDx1 * cos - scaledDy1 * sin;
-  const rotatedDy1 = scaledDx1 * sin + scaledDy1 * cos;
-
-  // Final positions in canvas coordinates
-  const endX = centerX + rotatedDx2;
-  const endY = centerY + rotatedDy2;
-  const startX = centerX + rotatedDx1;
-  const startY = centerY + rotatedDy1;
-
-  // Calculate arrow angle
-  const arrowAngle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
+  // Calculate arrow angle from start to end
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const arrowAngle = Math.atan2(dy, dx) * (180 / Math.PI);
 
   // Update triangle position and angle (keep size constant)
   triangle.set({
-    left: endX,
-    top: endY,
+    left: end.x,
+    top: end.y,
     angle: arrowAngle + 90, // +90 because triangle points up by default
   });
   triangle.setCoords();
