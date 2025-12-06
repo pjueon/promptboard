@@ -5,6 +5,7 @@ export default {
       select: '선택',
       eraser: '지우개',
       line: '직선',
+      arrow: '화살표',
       rectangle: '사각형',
       ellipse: '타원',
       text: '텍스트',

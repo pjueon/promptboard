@@ -46,6 +46,10 @@ let currentShape: fabric.Object | null = null;
 let startX = 0;
 let startY = 0;
 
+// Arrow drawing state (for independent Line + Triangle approach)
+let currentArrowLine: fabric.Line | null = null;
+let currentArrowHead: fabric.Triangle | null = null;
+
 // Region selection state
 let selectionRect: fabric.Rect | null = null;
 
@@ -91,8 +95,9 @@ function updateCanvasCursor() {
       cursor = 'crosshair';
       break;
     case 'line':
+    case 'arrow':
     case 'rectangle':
-    case 'circle':
+    case 'ellipse':
       cursor = 'crosshair';
       break;
     case 'text':
@@ -235,6 +240,245 @@ function setupLineTool() {
     toolbarStore.setTool('select');
   };
   
+  fabricCanvas.on('mouse:down', mouseDownHandler);
+  fabricCanvas.on('mouse:move', mouseMoveHandler);
+  fabricCanvas.on('mouse:up', mouseUpHandler);
+}
+
+/**
+ * Update arrow head position and angle based on line coordinates
+ */
+function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
+  if (!line || !triangle) return;
+
+  // Get line's original coordinates (these are absolute coordinates from when line was created)
+  const x1 = line.x1 || 0;
+  const y1 = line.y1 || 0;
+  const x2 = line.x2 || 0;
+  const y2 = line.y2 || 0;
+
+  // Calculate the original center (midpoint between x1,y1 and x2,y2)
+  const origCenterX = (x1 + x2) / 2;
+  const origCenterY = (y1 + y2) / 2;
+
+  // Get vectors from original center to endpoints
+  const dx1 = x1 - origCenterX;
+  const dy1 = y1 - origCenterY;
+  const dx2 = x2 - origCenterX;
+  const dy2 = y2 - origCenterY;
+
+  // Get the line's current center position
+  const centerX = line.left || 0;
+  const centerY = line.top || 0;
+
+  // Get transformation properties
+  const angle = (line.angle || 0) * Math.PI / 180;
+  const scaleX = line.scaleX || 1;
+  const scaleY = line.scaleY || 1;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  // Transform endpoint 2 (where arrow head should be)
+  const scaledDx2 = dx2 * scaleX;
+  const scaledDy2 = dy2 * scaleY;
+  const rotatedDx2 = scaledDx2 * cos - scaledDy2 * sin;
+  const rotatedDy2 = scaledDx2 * sin + scaledDy2 * cos;
+
+  // Transform endpoint 1 (for angle calculation)
+  const scaledDx1 = dx1 * scaleX;
+  const scaledDy1 = dy1 * scaleY;
+  const rotatedDx1 = scaledDx1 * cos - scaledDy1 * sin;
+  const rotatedDy1 = scaledDx1 * sin + scaledDy1 * cos;
+
+  // Final positions in canvas coordinates
+  const endX = centerX + rotatedDx2;
+  const endY = centerY + rotatedDy2;
+  const startX = centerX + rotatedDx1;
+  const startY = centerY + rotatedDy1;
+
+  // Calculate arrow angle
+  const arrowAngle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
+
+  // Update triangle position and angle (keep size constant)
+  triangle.set({
+    left: endX,
+    top: endY,
+    angle: arrowAngle + 90, // +90 because triangle points up by default
+  });
+  triangle.setCoords();
+}
+
+/**
+ * Setup arrow tool
+ */
+function setupArrowTool() {
+  if (!fabricCanvas) return;
+
+  cleanupShapeEvents();
+
+  mouseDownHandler = (e: fabric.IEvent) => {
+    isDrawing = true;
+    const pointer = e.pointer;
+    startX = pointer.x;
+    startY = pointer.y;
+
+    // Disable canvas selection during drawing
+    fabricCanvas!.selection = false;
+
+    // Create Line (the shaft of the arrow)
+    currentArrowLine = new fabric.Line([startX, startY, startX, startY], {
+      stroke: toolbarStore.color,
+      strokeWidth: toolbarStore.strokeWidth,
+      selectable: false,
+      evented: false,
+      hasBorders: false,
+      hasControls: false,
+      perPixelTargetFind: true,
+      strokeUniform: true,
+      originX: 'center',
+      originY: 'center',
+    });
+
+    // Calculate arrow head size based on stroke width
+    const headSize = Math.max(15, toolbarStore.strokeWidth * 3);
+
+    // Create Triangle (the arrow head)
+    currentArrowHead = new fabric.Triangle({
+      left: startX,
+      top: startY,
+      width: headSize,
+      height: headSize,
+      fill: toolbarStore.color,
+      selectable: false,
+      evented: false,
+      hasBorders: false,
+      hasControls: false,
+      originX: 'center',
+      originY: 'center',
+      angle: 0,
+    });
+
+    fabricCanvas!.add(currentArrowLine);
+    fabricCanvas!.add(currentArrowHead);
+  };
+
+  mouseMoveHandler = (e: fabric.IEvent) => {
+    if (!isDrawing || !currentArrowLine || !currentArrowHead) return;
+
+    const pointer = e.pointer;
+    let targetX = pointer.x;
+    let targetY = pointer.y;
+
+    // Snap to 45 degrees if Shift is pressed
+    if ((e.e as MouseEvent).shiftKey) {
+      const dx = targetX - startX;
+      const dy = targetY - startY;
+
+      if (dx !== 0 || dy !== 0) {
+        const angle = Math.atan2(dy, dx);
+        const length = Math.sqrt(dx * dx + dy * dy);
+
+        // Snap to 45 degrees (PI/4)
+        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
+
+        targetX = startX + length * Math.cos(snapAngle);
+        targetY = startY + length * Math.sin(snapAngle);
+      }
+    }
+
+    // Update line end point
+    currentArrowLine.set({
+      x2: targetX,
+      y2: targetY,
+    });
+    currentArrowLine.setCoords();
+
+    // Calculate arrow head position and angle
+    const dx = targetX - startX;
+    const dy = targetY - startY;
+    const angle = Math.atan2(dy, dx) * (180 / Math.PI); // Convert to degrees for Fabric.js
+
+    // Position triangle at the end of the line
+    currentArrowHead.set({
+      left: targetX,
+      top: targetY,
+      angle: angle + 90, // Rotate 90 degrees because Triangle points upward by default
+    });
+    currentArrowHead.setCoords();
+
+    fabricCanvas!.renderAll();
+  };
+
+  mouseUpHandler = () => {
+    if (!isDrawing) return;
+
+    isDrawing = false;
+
+    // Re-enable canvas selection
+    fabricCanvas!.selection = true;
+
+    if (currentArrowLine && currentArrowHead) {
+      // Capture references in local scope for closure
+      const arrowLine = currentArrowLine;
+      const arrowHead = currentArrowHead;
+
+      // Generate unique ID for this arrow pair
+      const arrowId = `arrow_${Date.now()}_${Math.random()}`;
+
+      // Link line and triangle with custom data
+      // @ts-expect-error - adding custom property
+      arrowLine.arrowId = arrowId;
+      // @ts-expect-error - adding custom property
+      arrowLine.arrowHead = arrowHead;
+      // @ts-expect-error - adding custom property
+      arrowHead.arrowId = arrowId;
+      // @ts-expect-error - adding custom property
+      arrowHead.arrowLine = arrowLine;
+
+      // Make line selectable but keep triangle non-selectable
+      arrowLine.set({
+        selectable: true,
+        evented: true,
+        hasBorders: true,
+        hasControls: true,
+      });
+
+      // Triangle should not be selectable (it follows the line)
+      arrowHead.set({
+        selectable: false,
+        evented: false,
+        hasBorders: false,
+        hasControls: false,
+      });
+
+      arrowLine.setCoords();
+      arrowHead.setCoords();
+
+      // Add event listeners to line for modifications
+      // Use closure variables to avoid null reference
+      const updateHandler = () => {
+        updateArrowHead(arrowLine, arrowHead);
+        fabricCanvas!.renderAll();
+      };
+
+      arrowLine.on('moving', updateHandler);
+      arrowLine.on('scaling', updateHandler);
+      arrowLine.on('rotating', updateHandler);
+      arrowLine.on('modified', updateHandler);
+
+      // Select the line
+      fabricCanvas!.setActiveObject(arrowLine);
+    }
+
+    currentArrowLine = null;
+    currentArrowHead = null;
+
+    fabricCanvas!.renderAll();
+
+    // Switch back to select mode
+    toolbarStore.setTool('select');
+  };
+
   fabricCanvas.on('mouse:down', mouseDownHandler);
   fabricCanvas.on('mouse:move', mouseMoveHandler);
   fabricCanvas.on('mouse:up', mouseUpHandler);
@@ -805,6 +1049,9 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
       break;
     case 'line':
       setupLineTool();
+      break;
+    case 'arrow':
+      setupArrowTool();
       break;
     case 'rectangle':
       setupRectangleTool();

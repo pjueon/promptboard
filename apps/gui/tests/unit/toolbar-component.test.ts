@@ -63,11 +63,20 @@ describe('Toolbar Component', () => {
       expect(spy).toHaveBeenCalledWith('line');
     });
 
+    it('should call setTool with arrow when arrow button is clicked', async () => {
+      const spy = vi.spyOn(store, 'setTool');
+      
+      const buttons = wrapper.findAll('.tool-btn');
+      await buttons[4].trigger('click'); // Fifth button is arrow
+      
+      expect(spy).toHaveBeenCalledWith('arrow');
+    });
+
     it('should call setTool with rectangle when rectangle button is clicked', async () => {
       const spy = vi.spyOn(store, 'setTool');
       
       const buttons = wrapper.findAll('.tool-btn');
-      await buttons[4].trigger('click'); // Fifth button is rectangle
+      await buttons[5].trigger('click'); // Sixth button is rectangle
       
       expect(spy).toHaveBeenCalledWith('rectangle');
     });
@@ -76,7 +85,7 @@ describe('Toolbar Component', () => {
       const spy = vi.spyOn(store, 'setTool');
       
       const buttons = wrapper.findAll('.tool-btn');
-      await buttons[5].trigger('click'); // Sixth button is ellipse
+      await buttons[6].trigger('click'); // Seventh button is ellipse
       
       expect(spy).toHaveBeenCalledWith('ellipse');
     });
@@ -85,7 +94,7 @@ describe('Toolbar Component', () => {
       const spy = vi.spyOn(store, 'setTool');
       
       const buttons = wrapper.findAll('.tool-btn');
-      await buttons[6].trigger('click'); // Seventh button is text
+      await buttons[7].trigger('click'); // Eighth button is text
       
       expect(spy).toHaveBeenCalledWith('text');
     });
@@ -177,7 +186,7 @@ describe('Toolbar Component', () => {
       
       const buttons = wrapper.findAll('.tool-btn');
       expect(buttons[0].classes()).not.toContain('active'); // pen
-      expect(buttons[5].classes()).toContain('active'); // ellipse
+      expect(buttons[6].classes()).toContain('active'); // ellipse
     });
 
     it('should update active state when tool changes', async () => {
@@ -191,19 +200,19 @@ describe('Toolbar Component', () => {
       await wrapper.vm.$nextTick();
       
       expect(buttons[0].classes()).not.toContain('active');
-      expect(buttons[4].classes()).toContain('active');
+      expect(buttons[5].classes()).toContain('active');
     });
   });
 
   describe('Rendering', () => {
-    it('should render 7 tool buttons', () => {
+    it('should render 8 tool buttons', () => {
       const toolButtons = wrapper.findAll('.tool-group')[0].findAll('.tool-btn');
-      expect(toolButtons).toHaveLength(7);
+      expect(toolButtons).toHaveLength(8);
     });
 
-    it('should render 9 buttons total including clear and settings buttons', () => {
+    it('should render 10 buttons total including clear and settings buttons', () => {
       const allButtons = wrapper.findAll('.tool-btn');
-      expect(allButtons).toHaveLength(9);
+      expect(allButtons).toHaveLength(10);
     });
 
     it('should render color picker input', () => {
@@ -243,7 +252,7 @@ describe('Toolbar Component', () => {
     });
 
     it('should hide font size slider when other tools are selected', async () => {
-      const tools: Tool[] = ['pen', 'select', 'eraser', 'line', 'rectangle', 'ellipse'];
+      const tools: Tool[] = ['pen', 'select', 'eraser', 'line', 'arrow', 'rectangle', 'ellipse'];
 
       for (const tool of tools) {
         store.setTool(tool);

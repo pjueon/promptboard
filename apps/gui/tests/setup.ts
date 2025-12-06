@@ -88,6 +88,8 @@ function MockLine(this: any, points: unknown, options: Record<string, unknown>) 
   Object.assign(this, options);
   this.on = function() { return this; };
   this.off = function() { return this; };
+  this.set = function(opts: any) { Object.assign(this, opts); return this; };
+  this.setCoords = function() {};
 }
 
 function MockRect(this: any, options: Record<string, unknown>) {
@@ -95,13 +97,8 @@ function MockRect(this: any, options: Record<string, unknown>) {
   Object.assign(this, options);
   this.on = function() { return this; };
   this.off = function() { return this; };
-}
-
-function MockCircle(this: any, options: Record<string, unknown>) {
-  this.type = 'circle';
-  Object.assign(this, options);
-  this.on = function() { return this; };
-  this.off = function() { return this; };
+  this.set = function(opts: any) { Object.assign(this, opts); return this; };
+  this.setCoords = function() {};
 }
 
 function MockIText(this: any, text: string, options: Record<string, unknown>) {
@@ -110,6 +107,38 @@ function MockIText(this: any, text: string, options: Record<string, unknown>) {
   Object.assign(this, options);
   this.on = function() { return this; };
   this.off = function() { return this; };
+  this.enterEditing = function() {};
+  this.setCoords = function() {};
+}
+
+function MockEllipse(this: any, options: Record<string, unknown>) {
+  this.type = 'ellipse';
+  Object.assign(this, options);
+  this.on = function() { return this; };
+  this.off = function() { return this; };
+  this.set = function(opts: any) { Object.assign(this, opts); return this; };
+  this.setCoords = function() {};
+}
+
+function MockTriangle(this: any, options: Record<string, unknown>) {
+  this.type = 'triangle';
+  Object.assign(this, options);
+  this.on = function() { return this; };
+  this.off = function() { return this; };
+  this.set = function(opts: any) { Object.assign(this, opts); return this; };
+  this.setCoords = function() {};
+}
+
+function MockGroup(this: any, objects: any[], options: Record<string, unknown>) {
+  this.type = 'group';
+  this._objects = objects || [];
+  Object.assign(this, options);
+  this.on = function() { return this; };
+  this.off = function() { return this; };
+  this.getObjects = function() { return this._objects; };
+  this.addWithUpdate = function() {};
+  this.set = function(opts: any) { Object.assign(this, opts); return this; };
+  this.setCoords = function() {};
 }
 
 const MockImage = {
@@ -140,12 +169,30 @@ vi.mock('fabric', () => {
       PencilBrush: MockPencilBrush,
       Line: MockLine,
       Rect: MockRect,
-      Circle: MockCircle,
+      Ellipse: MockEllipse,
+      Triangle: MockTriangle,
+      Group: MockGroup,
       IText: MockIText,
       Image: MockImage,
       Object: {
         prototype: {
           controls: { mtr: {} },
+        },
+      },
+      util: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        createClass: function(parent: any, properties: any) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return function MockClass(this: any, ...args: any[]) {
+            this.callSuper = function() {};
+            if (properties.initialize) {
+              properties.initialize.apply(this, args);
+            }
+            Object.assign(this, properties);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            this.set = function(opts: any) { Object.assign(this, opts); return this; };
+            this.setCoords = function() {};
+          };
         },
       },
     },
