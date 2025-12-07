@@ -1,9 +1,10 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
+import type { CanvasState } from '../types/canvas';
 
 export const useHistoryStore = defineStore('history', () => {
   // State
-  const snapshots = ref<string[]>([]);
+  const snapshots = ref<CanvasState[]>([]);
   const currentIndex = ref(-1);
   const maxHistory = ref(50);
 
@@ -12,14 +13,14 @@ export const useHistoryStore = defineStore('history', () => {
   const canRedo = computed(() => currentIndex.value < snapshots.value.length - 1);
 
   // Actions
-  function saveSnapshot(dataUrl: string) {
+  function saveSnapshot(canvasState: CanvasState) {
     // Remove all snapshots after current index (branch prevention)
     snapshots.value = snapshots.value.slice(0, currentIndex.value + 1);
-    
+
     // Add new snapshot
-    snapshots.value.push(dataUrl);
+    snapshots.value.push(canvasState);
     currentIndex.value++;
-    
+
     // Trim old snapshots if exceeding max
     if (snapshots.value.length > maxHistory.value) {
       snapshots.value.shift();
@@ -27,7 +28,7 @@ export const useHistoryStore = defineStore('history', () => {
     }
   }
 
-  function undo(): string | null {
+  function undo(): CanvasState | null {
     if (currentIndex.value > 0) {
       currentIndex.value--;
       return snapshots.value[currentIndex.value];
@@ -35,7 +36,7 @@ export const useHistoryStore = defineStore('history', () => {
     return null;
   }
 
-  function redo(): string | null {
+  function redo(): CanvasState | null {
     if (currentIndex.value < snapshots.value.length - 1) {
       currentIndex.value++;
       return snapshots.value[currentIndex.value];

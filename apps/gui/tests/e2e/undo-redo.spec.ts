@@ -113,23 +113,23 @@ test.describe('Undo/Redo Functionality', () => {
 
   test('should redo a previously undone action', async () => {
     // Get initial canvas state
-    const initialDataUrl = await page.evaluate(() => {
-      const canvas = (window as { fabricCanvas?: { toDataURL: () => string } }).fabricCanvas;
-      return canvas?.toDataURL();
+    const initialState = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { toJSON: () => object } }).fabricCanvas;
+      return JSON.stringify(canvas?.toJSON());
     });
-    
+
     // Draw a rectangle
     await drawRectangle(page);
     await page.waitForTimeout(500);
-    
+
     // Get canvas state after drawing
-    const drawnDataUrl = await page.evaluate(() => {
-      const canvas = (window as { fabricCanvas?: { toDataURL: () => string } }).fabricCanvas;
-      return canvas?.toDataURL();
+    const drawnState = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { toJSON: () => object } }).fabricCanvas;
+      return JSON.stringify(canvas?.toJSON());
     });
-    
+
     // Canvas should be different after drawing
-    expect(drawnDataUrl).not.toBe(initialDataUrl);
+    expect(drawnState).not.toBe(initialState);
     
     // Undo
     await page.keyboard.press('Control+z');
@@ -307,5 +307,142 @@ test.describe('Undo/Redo Functionality', () => {
     });
     expect(historyState.canUndo).toBe(true);
     expect(historyState.canRedo).toBe(false);
+  });
+
+  test('should undo object modifications (resize/rotate)', async () => {
+    // Draw a rectangle
+    await drawRectangle(page);
+    await page.waitForTimeout(500);
+
+    // Get the active object and resize it
+    await page.evaluate(() => {
+      interface FabricCanvas {
+        getActiveObject: () => { scaleX: number; scaleY: number; setCoords: () => void } | null;
+        renderAll: () => void;
+        fire: (event: string, options: { target: object }) => void;
+      }
+      const canvas = (window as { fabricCanvas?: FabricCanvas }).fabricCanvas;
+      const activeObject = canvas?.getActiveObject();
+      if (activeObject) {
+        activeObject.scaleX = 2;
+        activeObject.scaleY = 2;
+        activeObject.setCoords();
+        canvas?.renderAll();
+        canvas?.fire('object:modified', { target: activeObject });
+      }
+    });
+    await page.waitForTimeout(300);
+
+    // Verify we can undo the resize
+    let historyState = await page.evaluate(() => {
+      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
+      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+    });
+    expect(historyState.canUndo).toBe(true);
+
+    // Undo the resize
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+
+    // Should be able to redo
+    historyState = await page.evaluate(() => {
+      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
+      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+    });
+    expect(historyState.canRedo).toBe(true);
+  });
+
+  test('should undo flatten and restore object', async () => {
+    // Draw a rectangle
+    await drawRectangle(page);
+    await page.waitForTimeout(500);
+
+    // Deselect using ESC key to trigger flatten
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+
+    // After flatten, should have snapshot
+    let historyState = await page.evaluate(() => {
+      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
+      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+    });
+    expect(historyState.canUndo).toBe(true);
+
+    // Undo to restore object
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+
+    // Should be able to redo
+    historyState = await page.evaluate(() => {
+      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
+      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+    });
+    expect(historyState.canRedo).toBe(true);
+  });
+
+  test('should preserve auto-saved state when undoing after app restart', async () => {
+    // Draw a line and let it auto-save
+    await drawLine(page);
+    await page.waitForTimeout(1500); // Wait for auto-save debounce
+
+    // Close and reopen the app
+    await electronApp.close();
+    electronApp = await launchApp();
+    page = await electronApp.firstWindow();
+    await waitForAppReady(page);
+
+    // Wait for auto-save state to load
+    await page.waitForTimeout(1000);
+
+    // Verify canvas has the loaded line
+    const objectCount = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { getObjects: () => object[] } }).fabricCanvas;
+      return canvas?.getObjects().length || 0;
+    });
+    expect(objectCount).toBeGreaterThan(0);
+
+    // Draw a new rectangle
+    await drawRectangle(page);
+    await page.waitForTimeout(500);
+
+    // Deselect to flatten
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(500);
+
+    // Verify we can undo (this should only undo the rectangle, not the auto-saved line)
+    let historyState = await page.evaluate(() => {
+      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean; currentIndex: number } };
+      return {
+        canUndo: win.historyStore?.canUndo,
+        canRedo: win.historyStore?.canRedo,
+        currentIndex: win.historyStore?.currentIndex
+      };
+    });
+    expect(historyState.canUndo).toBe(true);
+
+    // Undo once (should remove the flattened rectangle)
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+
+    // Undo again (should remove the rectangle before flatten)
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+
+    // At this point, we should still have the auto-saved line (initial state)
+    // The canvas should not be completely empty
+    historyState = await page.evaluate(() => {
+      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean; currentIndex: number } };
+      return {
+        canUndo: win.historyStore?.canUndo,
+        canRedo: win.historyStore?.canRedo,
+        currentIndex: win.historyStore?.currentIndex
+      };
+    });
+
+    // Should be able to redo the undone actions
+    expect(historyState.canRedo).toBe(true);
+
+    // Should still be able to undo to the initial state (but not beyond)
+    expect(historyState.canUndo).toBe(true);
   });
 });

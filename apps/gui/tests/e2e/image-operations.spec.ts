@@ -46,10 +46,37 @@ async function getImageObjectCount(page: Page): Promise<number> {
   });
 }
 
-async function createTestImage(): Promise<string> {
-  // Create a simple PNG image (1x1 red pixel) as base64
-  const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==';
-  return `data:image/png;base64,${pngBase64}`;
+async function createTestImage(page: Page): Promise<string> {
+  // Create a 100x100 test image with visible pattern in browser context
+  return await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 100;
+    canvas.height = 100;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      throw new Error('Failed to create canvas context');
+    }
+
+    // Draw a red rectangle
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(0, 0, 100, 100);
+
+    // Draw blue border
+    ctx.strokeStyle = '#0000ff';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(4, 4, 92, 92);
+
+    // Add white diagonal line for visibility
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(10, 10);
+    ctx.lineTo(90, 90);
+    ctx.stroke();
+
+    return canvas.toDataURL('image/png');
+  });
 }
 
 async function simulateImageDrop(page: Page, imageDataUrl: string): Promise<void> {
@@ -117,19 +144,18 @@ test.describe('Image Operations', () => {
   let page: Page;
   let testImageDataUrl: string;
 
-  test.beforeAll(async () => {
-    testImageDataUrl = await createTestImage();
-  });
-
   test.beforeEach(async () => {
     electronApp = await launchApp();
     page = await electronApp.firstWindow();
-    
+
     // Wait for app to be fully ready
     await waitForAppReady(page);
-    
+
     // Clear auto-save data to ensure clean state
     await clearAutoSaveData(page);
+
+    // Create test image in browser context
+    testImageDataUrl = await createTestImage(page);
   });
 
   test.afterEach(async () => {

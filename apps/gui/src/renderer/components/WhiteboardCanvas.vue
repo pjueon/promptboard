@@ -14,6 +14,7 @@ import { useToolbarStore } from '../stores/toolbarStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useToastStore } from '../stores/toastStore';
 import { useAutoSaveStore } from '../stores/autoSaveStore';
+import type { CanvasState } from '../types/canvas';
 
 interface FabricCanvasElement extends HTMLCanvasElement {
   fabric?: fabric.Canvas;
@@ -26,6 +27,8 @@ interface ExtendedFabricCanvas extends fabric.Canvas {
   _keydownHandler?: (e: KeyboardEvent) => void;
   _dragoverHandler?: (e: DragEvent) => void;
   _dropHandler?: (e: DragEvent) => void;
+  _activeObject?: fabric.Object | null;
+  _hoveredTarget?: fabric.Object | null;
 }
 
 interface FabricObjectPrototype {
@@ -233,17 +236,21 @@ function setupLineTool() {
         hasControls: true,
       });
       currentShape.setCoords(); // Update object coordinates
-      
+
       // Select the newly created shape
       fabricCanvas!.setActiveObject(currentShape);
+
+      // Save snapshot after object creation and selection
+      setTimeout(() => {
+        if (!isRestoringSnapshot) {
+          saveCanvasSnapshot();
+        }
+      }, 50);
     }
     currentShape = null;
-    
+
     fabricCanvas!.renderAll(); // Re-render canvas
-    
-    // Save snapshot for undo/redo
-    saveCanvasSnapshot();
-    
+
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
@@ -546,17 +553,21 @@ function setupRectangleTool() {
         moveCursor: 'move',
       });
       currentShape.setCoords(); // Update object coordinates
-      
+
       // Select the newly created shape
       fabricCanvas!.setActiveObject(currentShape);
+
+      // Save snapshot after object creation and selection
+      setTimeout(() => {
+        if (!isRestoringSnapshot) {
+          saveCanvasSnapshot();
+        }
+      }, 50);
     }
     currentShape = null;
-    
+
     fabricCanvas!.renderAll(); // Re-render canvas
-    
-    // Save snapshot for undo/redo
-    saveCanvasSnapshot();
-    
+
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
@@ -647,17 +658,21 @@ function setupCircleTool() {
         moveCursor: 'move',
       });
       currentShape.setCoords(); // Update object coordinates
-      
+
       // Select the newly created shape
       fabricCanvas!.setActiveObject(currentShape);
+
+      // Save snapshot after object creation and selection
+      setTimeout(() => {
+        if (!isRestoringSnapshot) {
+          saveCanvasSnapshot();
+        }
+      }, 50);
     }
     currentShape = null;
-    
+
     fabricCanvas!.renderAll(); // Re-render canvas
-    
-    // Save snapshot for undo/redo
-    saveCanvasSnapshot();
-    
+
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
@@ -953,37 +968,130 @@ function deleteSelectedRegion() {
  */
 function saveCanvasSnapshot() {
   if (!fabricCanvas || isRestoringSnapshot) return;
-  
-  const dataUrl = fabricCanvas.toDataURL({
-    format: 'png',
-    quality: 0.9,
-  });
-  
-  historyStore.saveSnapshot(dataUrl);
+
+  // Include custom properties for arrows
+  const canvasState = fabricCanvas.toJSON(['arrowId', 'selectable', 'evented']);
+
+  historyStore.saveSnapshot(canvasState);
 }
 
 /**
  * Restore canvas from snapshot
  */
-function restoreSnapshot(dataUrl: string) {
+function restoreSnapshot(canvasState: CanvasState) {
   if (!fabricCanvas) return;
-  
+
   isRestoringSnapshot = true;
-  
-  fabric.Image.fromURL(dataUrl, (img) => {
-    fabricCanvas!.clear();
-    fabricCanvas!.setBackgroundImage(img, () => {
+
+  // Clear selection before clearing canvas
+  fabricCanvas.discardActiveObject();
+
+  // Clear canvas completely first to prevent background accumulation
+  fabricCanvas.clear();
+
+  // Force clear internal selection state
+  fabricCanvas._activeObject = null;
+  fabricCanvas._hoveredTarget = null;
+
+  fabricCanvas.backgroundColor = '#ffffff';
+  fabricCanvas.backgroundImage = null;
+
+  fabricCanvas.loadFromJSON(canvasState, () => {
+    // Ensure white background if no background image
+    if (!fabricCanvas!.backgroundImage) {
       fabricCanvas!.backgroundColor = '#ffffff';
-      fabricCanvas!.renderAll();
-      
-      // Reset flag after a small delay to ensure all events have finished
-      setTimeout(() => {
-        isRestoringSnapshot = false;
-      }, 100);
-    }, {
-      scaleX: fabricCanvas!.width! / img.width!,
-      scaleY: fabricCanvas!.height! / img.height!,
+    }
+
+    // Reconnect arrow objects and restore event handlers
+    const objects = fabricCanvas!.getObjects();
+    const arrowMap = new Map<string, { line?: fabric.Line; head?: fabric.Triangle }>();
+
+    // First pass: collect arrow objects by arrowId
+    objects.forEach((obj) => {
+      const arrowId = (obj as fabric.Object & { arrowId?: string }).arrowId;
+      if (arrowId) {
+        if (!arrowMap.has(arrowId)) {
+          arrowMap.set(arrowId, {});
+        }
+        const arrowPair = arrowMap.get(arrowId)!;
+
+        if (obj.type === 'line') {
+          arrowPair.line = obj as fabric.Line;
+        } else if (obj.type === 'triangle') {
+          arrowPair.head = obj as fabric.Triangle;
+        }
+      }
     });
+
+    // Second pass: reconnect arrow pairs and restore event handlers
+    arrowMap.forEach(({ line, head }) => {
+      if (line && head) {
+        // Restore references
+        (line as fabric.Line & { arrowHead?: fabric.Triangle }).arrowHead = head;
+        (head as fabric.Triangle & { arrowLine?: fabric.Line }).arrowLine = line;
+
+        // Restore event handlers for arrow line
+        const updateHandler = () => {
+          updateArrowHead(line, head);
+          fabricCanvas!.renderAll();
+        };
+
+        line.on('moving', updateHandler);
+        line.on('scaling', updateHandler);
+        line.on('rotating', updateHandler);
+        line.on('modified', updateHandler);
+      }
+    });
+
+    // Auto-select restored objects if any
+
+    if (objects && objects.length > 0) {
+      // Select the last object (most recently added)
+      let lastObject = objects[objects.length - 1];
+
+      // If the last object is not selectable (e.g., arrow head triangle)
+      // try to find its associated selectable object (e.g., arrow line)
+      if (lastObject.selectable === false) {
+        // Check if it's part of an arrow (has arrowLine reference)
+        const arrowLine = (lastObject as fabric.Object & { arrowLine?: fabric.Object }).arrowLine;
+        if (arrowLine && arrowLine.selectable) {
+          lastObject = arrowLine;
+        } else {
+          // Find the last selectable object
+          for (let i = objects.length - 1; i >= 0; i--) {
+            if (objects[i].selectable !== false) {
+              lastObject = objects[i];
+              break;
+            }
+          }
+        }
+      }
+
+      // Only select if the object is selectable
+      if (lastObject.selectable !== false) {
+        fabricCanvas!.setActiveObject(lastObject);
+      }
+    } else {
+      // Clear selection when no objects (prevents ghost bounding box)
+      fabricCanvas!.discardActiveObject();
+    }
+
+    fabricCanvas!.renderAll();
+
+    // Extra clear to ensure no ghost selection
+    if (objects.length === 0) {
+      setTimeout(() => {
+        fabricCanvas!.discardActiveObject();
+        fabricCanvas!._activeObject = null;
+        fabricCanvas!._hoveredTarget = null;
+        fabricCanvas!.requestRenderAll();
+      }, 50);
+    }
+
+    // Reset flag after a small delay to ensure all events have finished
+    setTimeout(() => {
+      isRestoringSnapshot = false;
+    }, 100);
   });
 }
 
@@ -992,31 +1100,40 @@ function restoreSnapshot(dataUrl: string) {
  */
 function flattenCanvasToBackground(callback?: () => void) {
   if (!fabricCanvas) return;
-  
+
   // Skip in test environment if fabric.Image is not available
   if (!fabric.Image || typeof fabric.Image.fromURL !== 'function') {
     return;
   }
-  
-  // Get current canvas as image (includes all objects)
+
+  // Store objects before removal
+  const objectsToRemove = fabricCanvas.getObjects().slice();
+
+  // Get current canvas as image (includes background + all objects)
   const dataUrl = fabricCanvas.toDataURL({
     format: 'png',
     quality: 1,
   });
-  
-  // Clear all objects (check if getObjects exists for test compatibility)
-  if (typeof fabricCanvas.getObjects === 'function') {
-    fabricCanvas.getObjects().forEach((obj) => {
-      fabricCanvas!.remove(obj);
-    });
-  }
-  
-  // Set the canvas image as background
+
+  // Clear all objects
+  objectsToRemove.forEach((obj) => {
+    fabricCanvas!.remove(obj);
+  });
+
+  // Set the flattened image as background, replacing any previous background
   fabric.Image.fromURL(dataUrl, (img) => {
     if (!fabricCanvas) return;
-    
+
+    // Remove any objects that might have been added during async operation
+    const currentObjects = fabricCanvas.getObjects().slice();
+    currentObjects.forEach((obj) => {
+      fabricCanvas!.remove(obj);
+    });
+
     fabricCanvas.setBackgroundImage(img, () => {
+      fabricCanvas!.backgroundColor = null; // Clear background color
       fabricCanvas!.renderAll();
+
       // Call callback after rendering is complete
       if (callback) {
         callback();
@@ -1318,15 +1435,24 @@ onMounted(() => {
   
   // Register selection:cleared event for flatten on deselect
 fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
+    if (isRestoringSnapshot) return; // Skip flatten during undo/redo
+
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
-      // Flatten entire canvas to background
-      flattenCanvasToBackground();
-      
-      // Save snapshot after flattening
+      // Flatten entire canvas to background, then save snapshot in callback
+      flattenCanvasToBackground(() => {
+        saveCanvasSnapshot();
+      });
+    }
+  });
+
+  // Register object:modified event for saving snapshots on resize/rotate/move
+  fabricCanvas.on('object:modified', () => {
+    if (!isRestoringSnapshot) {
+      // Delay snapshot to ensure canvas is fully rendered
       setTimeout(() => {
         saveCanvasSnapshot();
-      }, 100); // Wait for background image to load
+      }, 50);
     }
   });
 
@@ -1340,9 +1466,14 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     }, 50);
   });
   
+  // Save initial empty canvas snapshot first
+  // This ensures we can undo back to a blank canvas
+  saveCanvasSnapshot();
+
   // Load saved state (if exists)
   loadCanvasState().then(() => {
-    // Save initial snapshot
+    // Save snapshot after loading auto-save state (if any was loaded)
+    // This creates a second snapshot with the loaded state
     saveCanvasSnapshot();
 
     // Setup event-driven auto-save
@@ -1523,10 +1654,12 @@ async function loadCanvasState() {
   try {
     const state = await autoSaveStore.loadWhiteboardState();
     if (state && state.canvasData) {
-      fabricCanvas.loadFromJSON(state.canvasData, () => {
-        fabricCanvas!.renderAll();
-        // Save initial snapshot after loading
-        saveCanvasSnapshot();
+      // Wait for loadFromJSON to complete before resolving
+      return new Promise<void>((resolve) => {
+        fabricCanvas!.loadFromJSON(state.canvasData, () => {
+          fabricCanvas!.renderAll();
+          resolve();
+        });
       });
     }
   } catch (error) {
