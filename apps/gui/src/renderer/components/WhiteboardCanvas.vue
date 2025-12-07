@@ -48,6 +48,9 @@ let currentShape: fabric.Object | null = null;
 let startX = 0;
 let startY = 0;
 
+// Flag to prevent saving snapshots during undo/redo
+let isRestoringSnapshot = false;
+
 // Arrow drawing state (for independent Line + Triangle approach)
 let currentArrowLine: fabric.Line | null = null;
 let currentArrowHead: fabric.Triangle | null = null;
@@ -237,6 +240,9 @@ function setupLineTool() {
     currentShape = null;
     
     fabricCanvas!.renderAll(); // Re-render canvas
+    
+    // Save snapshot for undo/redo
+    saveCanvasSnapshot();
     
     // Switch back to select mode
     toolbarStore.setTool('select');
@@ -451,6 +457,9 @@ function setupArrowTool() {
     currentArrowHead = null;
 
     fabricCanvas!.renderAll();
+    
+    // Save snapshot for undo/redo
+    saveCanvasSnapshot();
 
     // Switch back to select mode
     toolbarStore.setTool('select');
@@ -485,7 +494,7 @@ function setupRectangleTool() {
       height: 0,
       stroke: toolbarStore.color,
       strokeWidth: toolbarStore.strokeWidth,
-      fill: 'rgba(0,0,0,0.01)', // Nearly transparent but detectable
+      fill: 'transparent', // Completely transparent fill
       selectable: false,
       evented: false,
       hasBorders: false,
@@ -545,6 +554,9 @@ function setupRectangleTool() {
     
     fabricCanvas!.renderAll(); // Re-render canvas
     
+    // Save snapshot for undo/redo
+    saveCanvasSnapshot();
+    
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
@@ -578,7 +590,7 @@ function setupCircleTool() {
       ry: 0,
       stroke: toolbarStore.color,
       strokeWidth: toolbarStore.strokeWidth,
-      fill: 'rgba(0,0,0,0.01)', // Nearly transparent but detectable
+      fill: 'transparent', // Completely transparent fill
       selectable: false,
       evented: false,
       hasBorders: false,
@@ -643,6 +655,9 @@ function setupCircleTool() {
     
     fabricCanvas!.renderAll(); // Re-render canvas
     
+    // Save snapshot for undo/redo
+    saveCanvasSnapshot();
+    
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
@@ -658,9 +673,10 @@ function setupCircleTool() {
 function setupTextTool() {
   if (!fabricCanvas) return;
   
-    cleanupShapeEvents();
+  cleanupShapeEvents();
   
-    mouseDownHandler = (e: fabric.IEvent) => {    const pointer = e.pointer;
+  mouseDownHandler = (e: fabric.IEvent) => {
+    const pointer = e.pointer;
     
     const text = new fabric.IText('', {
       left: pointer.x,
@@ -673,6 +689,15 @@ function setupTextTool() {
     fabricCanvas!.setActiveObject(text);
     text.enterEditing();
     text.setCoords(); // Update object coordinates
+    
+    // Save snapshot when text editing exits
+    text.on('editing:exited', () => {
+      // Save snapshot after text is finalized
+      setTimeout(() => {
+        saveCanvasSnapshot();
+      }, 100);
+    });
+    
     fabricCanvas!.renderAll(); // Re-render canvas
     
     // Don't switch to select mode immediately - let user finish typing
@@ -927,7 +952,7 @@ function deleteSelectedRegion() {
  * Save canvas snapshot to history
  */
 function saveCanvasSnapshot() {
-  if (!fabricCanvas) return;
+  if (!fabricCanvas || isRestoringSnapshot) return;
   
   const dataUrl = fabricCanvas.toDataURL({
     format: 'png',
@@ -943,11 +968,18 @@ function saveCanvasSnapshot() {
 function restoreSnapshot(dataUrl: string) {
   if (!fabricCanvas) return;
   
+  isRestoringSnapshot = true;
+  
   fabric.Image.fromURL(dataUrl, (img) => {
     fabricCanvas!.clear();
     fabricCanvas!.setBackgroundImage(img, () => {
       fabricCanvas!.backgroundColor = '#ffffff';
       fabricCanvas!.renderAll();
+      
+      // Reset flag after a small delay to ensure all events have finished
+      setTimeout(() => {
+        isRestoringSnapshot = false;
+      }, 100);
     }, {
       scaleX: fabricCanvas!.width! / img.width!,
       scaleY: fabricCanvas!.height! / img.height!,
@@ -1137,6 +1169,9 @@ function addImageToCanvas(blob: Blob, position?: { x: number; y: number }, sourc
       fabricCanvas.setActiveObject(img);
       fabricCanvas.renderAll();
       
+      // Save snapshot for undo/redo
+      saveCanvasSnapshot();
+      
       // Show success message
       const message = source === 'paste' ? 'Image pasted from clipboard' : 'Image added from file';
       toastStore.success(message);
@@ -1235,6 +1270,9 @@ onMounted(() => {
 
   // Store fabricCanvas reference on canvas element for main process access
   canvasEl.value.fabric = fabricCanvas;
+  
+  // Expose fabricCanvas globally for E2E testing
+  (window as { fabricCanvas?: ExtendedFabricCanvas }).fabricCanvas = fabricCanvas;
   
   // Override default cursor handler to set rotation cursor (only in non-test environment)
   // Using Lucide RotateCw icon as SVG cursor

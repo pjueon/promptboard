@@ -30,9 +30,9 @@
     "postinstall": "node scripts/download-binary.js",
     "type-check": "tsc --noEmit",
     "lint": "eslint . --ext .ts,.tsx,.vue",
-    "test": "vitest run && playwright test",
+    "test": "npm run build && vitest run && playwright test",
     "test:unit": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "npm run build && playwright test"
   },
   "build": {
     "appId": "com.promptboard.app",

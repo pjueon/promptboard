@@ -19,7 +19,7 @@ export default defineConfig({
   
   // 리포터 설정
   reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['list'],
   ],
   
