@@ -2,6 +2,7 @@
   "name": "promptboard-monorepo",
   "version": "0.2.2",
   "private": true,
+  "license": "Apache-2.0",
   "type": "module",
   "scripts": {
     "dev": "npm run dev --workspace=@promptboard/gui",

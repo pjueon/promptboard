@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Visual Context Buffer MCP Server for AI Agents",
   "author": "Jueon Park",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/pjueon/promptboard.git"
