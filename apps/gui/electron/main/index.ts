@@ -63,8 +63,9 @@ function createWindow() {
 
   // Load content
   const isDev = !app.isPackaged
+  const isTest = process.env.NODE_ENV === 'test' || process.argv.includes('--test')
 
-  if (isDev) {
+  if (isDev && !isTest) {
     const devServerPort = process.env.VITE_DEV_SERVER_PORT || '5555'
     mainWindow.loadURL(`http://localhost:${devServerPort}`)
 
@@ -72,6 +73,10 @@ function createWindow() {
     if (!isMCPMode && mainWindow.webContents) {
       mainWindow.webContents.openDevTools()
     }
+  } else if (isTest || isDev) {
+    // Test mode or development without server: load built files
+    const rendererPath = path.join(__dirname, '../../dist/index.html')
+    mainWindow.loadFile(rendererPath)
   } else {
     // Production: load from built files
     // vite-plugin-electron builds renderer in dist/ folder
