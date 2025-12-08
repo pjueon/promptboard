@@ -94,10 +94,10 @@ const getEraserCursor = () => {
 // Update canvas cursor based on current tool
 function updateCanvasCursor() {
   if (!fabricCanvas) return;
-  
+
   const tool = toolbarStore.currentTool;
   let cursor = 'default';
-  
+
   switch (tool) {
     case 'pen':
       cursor = 'crosshair';
@@ -121,15 +121,20 @@ function updateCanvasCursor() {
       cursor = 'default';
       break;
   }
-  
+
   fabricCanvas.defaultCursor = cursor;
   fabricCanvas.hoverCursor = cursor;
-  
+
   // For drawing mode (pen and eraser), also set freeDrawingCursor
   if (fabricCanvas.isDrawingMode) {
     fabricCanvas.freeDrawingCursor = cursor;
   }
-  
+
+  // Immediately update the actual DOM cursor style (without waiting for mouse move)
+  if (fabricCanvas.upperCanvasEl) {
+    fabricCanvas.upperCanvasEl.style.cursor = cursor;
+  }
+
   fabricCanvas.renderAll();
 }
 
@@ -1483,7 +1488,35 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
   // Handle keyboard shortcuts
   const handleKeydown = (e: KeyboardEvent) => {
     if (!fabricCanvas) return;
-    
+
+    // Check if user is editing text (to prevent shortcuts from interfering)
+    const activeObject = fabricCanvas.getActiveObject();
+    const isEditingText = activeObject && activeObject.type === 'i-text' && (activeObject as fabric.IText).isEditing;
+
+    // [ - Decrease stroke width (disabled during text editing)
+    if (e.key === '[' && !isEditingText) {
+      const currentWidth = toolbarStore.strokeWidth;
+      const newWidth = Math.max(1, currentWidth - 1);
+      toolbarStore.setStrokeWidth(newWidth);
+      // Update eraser cursor immediately if eraser tool is active
+      if (toolbarStore.currentTool === 'eraser') {
+        updateCanvasCursor();
+      }
+      return;
+    }
+
+    // ] - Increase stroke width (disabled during text editing)
+    if (e.key === ']' && !isEditingText) {
+      const currentWidth = toolbarStore.strokeWidth;
+      const newWidth = Math.min(20, currentWidth + 1);
+      toolbarStore.setStrokeWidth(newWidth);
+      // Update eraser cursor immediately if eraser tool is active
+      if (toolbarStore.currentTool === 'eraser') {
+        updateCanvasCursor();
+      }
+      return;
+    }
+
     // ESC - Cancel selection / Deselect
     if (e.key === 'Escape') {
       // Remove selection rectangle if exists
@@ -1493,7 +1526,7 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
         fabricCanvas.renderAll();
         return;
       }
-      
+
       // Deselect active object if exists
       const activeObject = fabricCanvas.getActiveObject();
       if (activeObject) {

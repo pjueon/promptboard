@@ -305,29 +305,252 @@ test.describe('Keyboard Shortcuts', () => {
     // Select text tool
     await page.click('[data-testid="tool-btn-text"]');
     await page.waitForTimeout(100);
-    
+
     const canvas = await page.locator('canvas').first();
     const box = await canvas.boundingBox();
     if (box) {
       await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
       await page.waitForTimeout(200);
     }
-    
+
     // Type text - Ctrl+A should select text, not canvas objects
     await page.keyboard.type('Test');
     await page.keyboard.press('Control+a');
     await page.waitForTimeout(100);
-    
+
     // Type more to replace selected text
     await page.keyboard.type('New');
     await page.waitForTimeout(100);
-    
+
     // Exit text editing
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
-    
+
     // Should have one text object
     const count = await getCanvasObjectCount(page);
     expect(count).toBe(1);
+  });
+
+  test('[ key should decrease stroke width', async () => {
+    // Get initial stroke width from toolbarStore
+    const initialWidth = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(initialWidth).toBeDefined();
+
+    // Press [ key
+    await page.keyboard.press('[');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width decreased
+    const newWidth = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(newWidth).toBe(initialWidth! - 1);
+
+    // Verify UI slider is synced
+    const sliderValue = await page.locator('[data-testid="stroke-slider"]').inputValue();
+    expect(Number(sliderValue)).toBe(newWidth);
+  });
+
+  test('] key should increase stroke width', async () => {
+    // Get initial stroke width from toolbarStore
+    const initialWidth = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(initialWidth).toBeDefined();
+
+    // Press ] key
+    await page.keyboard.press(']');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width increased
+    const newWidth = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(newWidth).toBe(initialWidth! + 1);
+
+    // Verify UI slider is synced
+    const sliderValue = await page.locator('[data-testid="stroke-slider"]').inputValue();
+    expect(Number(sliderValue)).toBe(newWidth);
+  });
+
+  test('[ key should not decrease stroke width below 1', async () => {
+    // Set stroke width to 1 (minimum)
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(1);
+    });
+    await page.waitForTimeout(100);
+
+    // Press [ key multiple times
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width is still 1
+    const width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(width).toBe(1);
+  });
+
+  test('] key should not increase stroke width above 20', async () => {
+    // Set stroke width to 20 (maximum)
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(20);
+    });
+    await page.waitForTimeout(100);
+
+    // Press ] key multiple times
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width is still 20
+    const width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(width).toBe(20);
+  });
+
+  test('Multiple [ and ] key presses should work correctly', async () => {
+    // Set stroke width to 10
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(10);
+    });
+    await page.waitForTimeout(100);
+
+    // Press ] three times (10 -> 13)
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.waitForTimeout(100);
+
+    let width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+    expect(width).toBe(13);
+
+    // Press [ five times (13 -> 8)
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.waitForTimeout(100);
+
+    width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+    expect(width).toBe(8);
+  });
+
+  test('[ and ] keys should not change stroke width during text editing', async () => {
+    // Set initial stroke width
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(10);
+    });
+    await page.waitForTimeout(100);
+
+    // Select text tool and start editing
+    await page.click('[data-testid="tool-btn-text"]');
+    await page.waitForTimeout(100);
+
+    const canvas = await page.locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (box) {
+      await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+      await page.waitForTimeout(200);
+    }
+
+    // Type text with [ and ] characters
+    await page.keyboard.type('test[brackets]here');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width hasn't changed
+    const width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+    expect(width).toBe(10);
+
+    // Exit text editing
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+  });
+
+  test('Stroke width slider should be hidden when text tool is selected', async () => {
+    // Select pen tool first
+    await page.click('[data-testid="tool-btn-pen"]');
+    await page.waitForTimeout(100);
+
+    // Stroke slider should be visible
+    const sliderVisibleWithPen = await page.locator('[data-testid="stroke-slider"]').isVisible();
+    expect(sliderVisibleWithPen).toBe(true);
+
+    // Select text tool
+    await page.click('[data-testid="tool-btn-text"]');
+    await page.waitForTimeout(100);
+
+    // Stroke slider should be hidden
+    const sliderVisibleWithText = await page.locator('[data-testid="stroke-slider"]').count();
+    expect(sliderVisibleWithText).toBe(0);
+  });
+
+  test('[ and ] keys should update eraser cursor size', async () => {
+    // Set initial stroke width to 5
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(5);
+    });
+    await page.waitForTimeout(100);
+
+    // Select eraser tool
+    await page.click('[data-testid="tool-btn-eraser"]');
+    await page.waitForTimeout(200);
+
+    // Get initial cursor style
+    const initialCursor = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { defaultCursor?: string } }).fabricCanvas;
+      return canvas?.defaultCursor;
+    });
+
+    // Press ] to increase stroke width
+    await page.keyboard.press(']');
+    await page.waitForTimeout(200);
+
+    // Get updated cursor style
+    const increasedCursor = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { defaultCursor?: string } }).fabricCanvas;
+      return canvas?.defaultCursor;
+    });
+
+    // Cursor should have changed (different SVG size)
+    expect(increasedCursor).not.toBe(initialCursor);
+
+    // Press [ to decrease stroke width
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.waitForTimeout(200);
+
+    // Get final cursor style
+    const decreasedCursor = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { defaultCursor?: string } }).fabricCanvas;
+      return canvas?.defaultCursor;
+    });
+
+    // Cursor should be different from increased state
+    expect(decreasedCursor).not.toBe(increasedCursor);
   });
 });

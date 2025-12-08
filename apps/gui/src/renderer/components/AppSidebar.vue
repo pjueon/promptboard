@@ -159,6 +159,14 @@
                 <span class="shortcut-desc">{{ t('sidebar.shortcuts.save') }}</span>
                 <kbd class="shortcut-key">Ctrl+S</kbd>
               </div>
+              <div class="shortcut-item">
+                <span class="shortcut-desc">{{ t('sidebar.shortcuts.increaseStroke') }}</span>
+                <kbd class="shortcut-key">]</kbd>
+              </div>
+              <div class="shortcut-item">
+                <span class="shortcut-desc">{{ t('sidebar.shortcuts.decreaseStroke') }}</span>
+                <kbd class="shortcut-key">[</kbd>
+              </div>
             </div>
           </div>
 
