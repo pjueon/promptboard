@@ -1387,6 +1387,40 @@ const handleDrop = (e: DragEvent) => {
   }
 };
 
+
+/**
+ * Handle deletion of objects, including complex objects like arrows
+ * @param canvas The fabric canvas instance
+ */
+function handleCanvasDelete(canvas: fabric.Canvas) {
+  const activeObject = canvas.getActiveObject();
+  if (!activeObject) return;
+
+  if (activeObject.type === 'activeSelection') {
+    // Handle group selection
+    (activeObject as fabric.ActiveSelection).getObjects().forEach(obj => {
+      // @ts-expect-error - custom prop
+      const associatedHead = obj.arrowHead;
+      canvas.remove(obj);
+      if (associatedHead) {
+        canvas.remove(associatedHead);
+      }
+    });
+  } else {
+    // Handle single object selection
+    // @ts-expect-error - custom prop
+    const associatedHead = activeObject.arrowHead;
+    canvas.remove(activeObject);
+    if (associatedHead) {
+      canvas.remove(associatedHead);
+    }
+  }
+
+  canvas.discardActiveObject();
+  canvas.renderAll();
+  saveCanvasSnapshot();
+}
+
 onMounted(() => {
   if (!canvasEl.value) return;
 
@@ -1569,14 +1603,8 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
         return;
       }
       
-      // Otherwise, remove selected object
-      const activeObject = fabricCanvas.getActiveObject();
-      if (activeObject) {
-        fabricCanvas.remove(activeObject);
-        fabricCanvas.discardActiveObject();
-        fabricCanvas.renderAll();
-        saveCanvasSnapshot();
-      }
+      // Otherwise, remove selected object(s)
+      handleCanvasDelete(fabricCanvas);
     }
     
     // Ctrl+S - Save canvas as file
