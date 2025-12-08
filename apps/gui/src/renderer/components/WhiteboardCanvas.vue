@@ -10,6 +10,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { fabric } from 'fabric';
+import '../fabric-ext/EditableLine';
 import { useToolbarStore } from '../stores/toolbarStore';
 import { useHistoryStore } from '../stores/historyStore';
 import { useToastStore } from '../stores/toastStore';
@@ -21,14 +22,18 @@ interface FabricCanvasElement extends HTMLCanvasElement {
 }
 
 // Extended Fabric.js types for custom properties
-interface ExtendedFabricCanvas extends fabric.Canvas {
+interface ExtendedFabricCanvas extends Omit<fabric.Canvas, '_activeObject' | 'backgroundColor' | 'backgroundImage'> {
   _resizeHandler?: () => void;
   _pasteHandler?: (e: ClipboardEvent) => void;
   _keydownHandler?: (e: KeyboardEvent) => void;
   _dragoverHandler?: (e: DragEvent) => void;
   _dropHandler?: (e: DragEvent) => void;
-  _activeObject?: fabric.Object | null;
+  _activeObject?: fabric.Object | null | undefined;
   _hoveredTarget?: fabric.Object | null;
+  upperCanvasEl?: HTMLCanvasElement;
+  lowerCanvasEl?: HTMLCanvasElement;
+  backgroundImage?: fabric.Image | string | null;
+  backgroundColor?: string | fabric.Pattern | null;
 }
 
 interface FabricObjectPrototype {
@@ -174,30 +179,35 @@ function setupLineTool() {
 
   mouseDownHandler = (e: fabric.IEvent) => {    isDrawing = true;
     const pointer = e.pointer;
+    if (!pointer) return;
     startX = pointer.x;
     startY = pointer.y;
     
     // Disable canvas selection during drawing
     fabricCanvas!.selection = false;
     
-    currentShape = new fabric.Line([startX, startY, startX, startY], {
+    currentShape = new fabric.EditableLine([startX, startY, startX, startY], {
       stroke: toolbarStore.color,
       strokeWidth: toolbarStore.strokeWidth,
       selectable: false,
       evented: false,
-      hasBorders: false,
-      hasControls: false,
       perPixelTargetFind: true,
       strokeUniform: true, // Maintain stroke width when scaling
+      originX: 'center',
+      originY: 'center',
+      type: 'editableLine',
     });
     
-    fabricCanvas!.add(currentShape);
+    if (currentShape) {
+      fabricCanvas!.add(currentShape);
+    }
   };
   
   mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
+    if (!pointer) return;
     let targetX = pointer.x;
     let targetY = pointer.y;
 
@@ -237,8 +247,6 @@ function setupLineTool() {
       currentShape.set({
         selectable: true,
         evented: true,
-        hasBorders: true,
-        hasControls: true,
       });
       currentShape.setCoords(); // Update object coordinates
 
@@ -314,6 +322,7 @@ function setupArrowTool() {
   mouseDownHandler = (e: fabric.IEvent) => {
     isDrawing = true;
     const pointer = e.pointer;
+    if (!pointer) return;
     startX = pointer.x;
     startY = pointer.y;
 
@@ -321,17 +330,16 @@ function setupArrowTool() {
     fabricCanvas!.selection = false;
 
     // Create Line (the shaft of the arrow)
-    currentArrowLine = new fabric.Line([startX, startY, startX, startY], {
+    currentArrowLine = new fabric.EditableLine([startX, startY, startX, startY], {
       stroke: toolbarStore.color,
       strokeWidth: toolbarStore.strokeWidth,
       selectable: false,
       evented: false,
-      hasBorders: false,
-      hasControls: false,
       perPixelTargetFind: true,
       strokeUniform: true,
       originX: 'center',
       originY: 'center',
+      type: 'editableLine',
     });
 
     // Calculate arrow head size based on stroke width
@@ -353,14 +361,17 @@ function setupArrowTool() {
       angle: 0,
     });
 
-    fabricCanvas!.add(currentArrowLine);
-    fabricCanvas!.add(currentArrowHead);
+    if (currentArrowLine && currentArrowHead) {
+      fabricCanvas!.add(currentArrowLine);
+      fabricCanvas!.add(currentArrowHead);
+    }
   };
 
   mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !currentArrowLine || !currentArrowHead) return;
 
     const pointer = e.pointer;
+    if (!pointer) return;
     let targetX = pointer.x;
     let targetY = pointer.y;
 
@@ -434,8 +445,6 @@ function setupArrowTool() {
       arrowLine.set({
         selectable: true,
         evented: true,
-        hasBorders: true,
-        hasControls: true,
       });
 
       // Triangle should not be selectable (it follows the line)
@@ -476,7 +485,7 @@ function setupArrowTool() {
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
-
+  
   fabricCanvas.on('mouse:down', mouseDownHandler);
   fabricCanvas.on('mouse:move', mouseMoveHandler);
   fabricCanvas.on('mouse:up', mouseUpHandler);
@@ -493,6 +502,7 @@ function setupRectangleTool() {
   mouseDownHandler = (e: fabric.IEvent) => {
     isDrawing = true;
     const pointer = e.pointer;
+    if (!pointer) return;
     startX = pointer.x;
     startY = pointer.y;
     
@@ -520,6 +530,7 @@ function setupRectangleTool() {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
+    if (!pointer) return;
     let width = pointer.x - startX;
     let height = pointer.y - startY;
     
@@ -593,6 +604,7 @@ function setupCircleTool() {
   mouseDownHandler = (e: fabric.IEvent) => {
     isDrawing = true;
     const pointer = e.pointer;
+    if (!pointer) return;
     startX = pointer.x;
     startY = pointer.y;
     
@@ -622,6 +634,7 @@ function setupCircleTool() {
     if (!isDrawing || !currentShape) return;
     
     const pointer = e.pointer;
+    if (!pointer) return;
     let width = pointer.x - startX;
     let height = pointer.y - startY;
     
@@ -697,6 +710,7 @@ function setupTextTool() {
   
   mouseDownHandler = (e: fabric.IEvent) => {
     const pointer = e.pointer;
+    if (!pointer) return;
     
     const text = new fabric.IText('', {
       left: pointer.x,
@@ -770,7 +784,7 @@ function setupRegionSelectTool() {
   mouseDownHandler = (e: fabric.IEvent) => {
     // Check if clicking on an existing object
     const target = e.target;
-    if (target && target !== fabricCanvas) {
+    if (target) {
       // Clicked on an object, allow normal selection
       return;
     }
@@ -778,6 +792,7 @@ function setupRegionSelectTool() {
     // Clicked on empty space, start region selection
     isDrawing = true;
     const pointer = e.pointer;
+    if (!pointer) return;
     startX = pointer.x;
     startY = pointer.y;
     
@@ -812,6 +827,7 @@ mouseMoveHandler = (e: fabric.IEvent) => {
     if (!isDrawing || !selectionRect) return;
     
     const pointer = e.pointer;
+    if (!pointer) return;
     const width = pointer.x - startX;
     const height = pointer.y - startY;
     
@@ -1020,7 +1036,7 @@ function restoreSnapshot(canvasState: CanvasState) {
         }
         const arrowPair = arrowMap.get(arrowId)!;
 
-        if (obj.type === 'line') {
+        if (obj.type === 'line' || obj.type === 'editableLine') {
           arrowPair.line = obj as fabric.Line;
         } else if (obj.type === 'triangle') {
           arrowPair.head = obj as fabric.Triangle;
@@ -1099,7 +1115,6 @@ function restoreSnapshot(canvasState: CanvasState) {
     }, 100);
   });
 }
-
 /**
  * Flatten all objects to canvas background
  */
@@ -1391,7 +1406,7 @@ onMounted(() => {
   });
 
   // Store fabricCanvas reference on canvas element for main process access
-  canvasEl.value.fabric = fabricCanvas;
+  canvasEl.value.fabric = fabricCanvas as fabric.Canvas;
   
   // Expose fabricCanvas globally for E2E testing
   (window as { fabricCanvas?: ExtendedFabricCanvas }).fabricCanvas = fabricCanvas;

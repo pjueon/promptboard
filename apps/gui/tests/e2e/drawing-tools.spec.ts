@@ -144,7 +144,7 @@ test.describe('Drawing Tools Functionality', () => {
     expect(finalCount).toBe(1);
     
     const objectType = await getLastObjectType(page);
-    expect(objectType).toBe('line');
+    expect(objectType).toBe('editableLine');
   });
 
   test('should draw an arrow', async () => {
