@@ -182,7 +182,7 @@ function setupLineTool() {
     if (!pointer) return;
     startX = pointer.x;
     startY = pointer.y;
-    
+
     // Disable canvas selection during drawing
     fabricCanvas!.selection = false;
     
@@ -237,12 +237,12 @@ function setupLineTool() {
   };  
   mouseUpHandler = () => {
     if (!isDrawing) return;
-    
+
     isDrawing = false;
-    
+
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
-    
+
     if (currentShape) {
       currentShape.set({
         selectable: true,
@@ -251,6 +251,7 @@ function setupLineTool() {
       currentShape.setCoords(); // Update object coordinates
 
       // Select the newly created shape
+      // fabric.js will automatically clear any previous selection
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
@@ -267,7 +268,7 @@ function setupLineTool() {
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
-  
+
   fabricCanvas.on('mouse:down', mouseDownHandler);
   fabricCanvas.on('mouse:move', mouseMoveHandler);
   fabricCanvas.on('mouse:up', mouseUpHandler);
@@ -471,6 +472,7 @@ function setupArrowTool() {
       arrowLine.on('modified', updateHandler);
 
       // Select the line
+      // fabric.js will automatically clear any previous selection
       fabricCanvas!.setActiveObject(arrowLine);
     }
 
@@ -505,10 +507,10 @@ function setupRectangleTool() {
     if (!pointer) return;
     startX = pointer.x;
     startY = pointer.y;
-    
+
     // Disable canvas selection during drawing
     fabricCanvas!.selection = false;
-    
+
     currentShape = new fabric.Rect({
       left: startX,
       top: startY,
@@ -571,6 +573,7 @@ function setupRectangleTool() {
       currentShape.setCoords(); // Update object coordinates
 
       // Select the newly created shape
+      // fabric.js will automatically clear any previous selection
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
@@ -587,7 +590,7 @@ function setupRectangleTool() {
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
-  
+
   fabricCanvas.on('mouse:down', mouseDownHandler);
   fabricCanvas.on('mouse:move', mouseMoveHandler);
   fabricCanvas.on('mouse:up', mouseUpHandler);
@@ -607,10 +610,10 @@ function setupCircleTool() {
     if (!pointer) return;
     startX = pointer.x;
     startY = pointer.y;
-    
+
     // Disable canvas selection during drawing
     fabricCanvas!.selection = false;
-    
+
     currentShape = new fabric.Ellipse({
       left: startX,
       top: startY,
@@ -678,6 +681,7 @@ function setupCircleTool() {
       currentShape.setCoords(); // Update object coordinates
 
       // Select the newly created shape
+      // fabric.js will automatically clear any previous selection
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
@@ -694,7 +698,7 @@ function setupCircleTool() {
     // Switch back to select mode
     toolbarStore.setTool('select');
   };
-  
+
   fabricCanvas.on('mouse:down', mouseDownHandler);
   fabricCanvas.on('mouse:move', mouseMoveHandler);
   fabricCanvas.on('mouse:up', mouseUpHandler);
@@ -1146,6 +1150,20 @@ function flattenCanvasToBackground(callback?: () => void) {
 
     // Remove any objects that might have been added during async operation
     const currentObjects = fabricCanvas.getObjects().slice();
+
+    // If user started drawing a new shape, don't remove it!
+    if (isDrawing) {
+      // Just set the background image without removing objects
+      fabricCanvas.setBackgroundImage(img, () => {
+        fabricCanvas!.backgroundColor = null;
+        fabricCanvas!.renderAll();
+      }, {
+        scaleX: fabricCanvas!.width! / img.width!,
+        scaleY: fabricCanvas!.height! / img.height!,
+      });
+      return;
+    }
+
     currentObjects.forEach((obj) => {
       fabricCanvas!.remove(obj);
     });
@@ -1490,6 +1508,7 @@ onMounted(() => {
   // Register selection:cleared event for flatten on deselect
 fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
     if (isRestoringSnapshot) return; // Skip flatten during undo/redo
+    if (isDrawing) return; // Skip flatten while user is actively drawing a new shape
 
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
