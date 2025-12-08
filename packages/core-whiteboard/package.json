@@ -1,6 +1,6 @@
 {
   "name": "@promptboard/core-whiteboard",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Shared Vue components and Fabric.js logic for Promptboard",
   "license": "Apache-2.0",
   "main": "dist/index.js",
