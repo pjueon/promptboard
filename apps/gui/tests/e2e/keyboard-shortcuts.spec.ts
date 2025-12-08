@@ -305,29 +305,154 @@ test.describe('Keyboard Shortcuts', () => {
     // Select text tool
     await page.click('[data-testid="tool-btn-text"]');
     await page.waitForTimeout(100);
-    
+
     const canvas = await page.locator('canvas').first();
     const box = await canvas.boundingBox();
     if (box) {
       await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
       await page.waitForTimeout(200);
     }
-    
+
     // Type text - Ctrl+A should select text, not canvas objects
     await page.keyboard.type('Test');
     await page.keyboard.press('Control+a');
     await page.waitForTimeout(100);
-    
+
     // Type more to replace selected text
     await page.keyboard.type('New');
     await page.waitForTimeout(100);
-    
+
     // Exit text editing
     await page.keyboard.press('Escape');
     await page.waitForTimeout(200);
-    
+
     // Should have one text object
     const count = await getCanvasObjectCount(page);
     expect(count).toBe(1);
+  });
+
+  test('[ key should decrease stroke width', async () => {
+    // Get initial stroke width from toolbarStore
+    const initialWidth = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(initialWidth).toBeDefined();
+
+    // Press [ key
+    await page.keyboard.press('[');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width decreased
+    const newWidth = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(newWidth).toBe(initialWidth! - 1);
+
+    // Verify UI slider is synced
+    const sliderValue = await page.locator('[data-testid="stroke-slider"]').inputValue();
+    expect(Number(sliderValue)).toBe(newWidth);
+  });
+
+  test('] key should increase stroke width', async () => {
+    // Get initial stroke width from toolbarStore
+    const initialWidth = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(initialWidth).toBeDefined();
+
+    // Press ] key
+    await page.keyboard.press(']');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width increased
+    const newWidth = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(newWidth).toBe(initialWidth! + 1);
+
+    // Verify UI slider is synced
+    const sliderValue = await page.locator('[data-testid="stroke-slider"]').inputValue();
+    expect(Number(sliderValue)).toBe(newWidth);
+  });
+
+  test('[ key should not decrease stroke width below 1', async () => {
+    // Set stroke width to 1 (minimum)
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(1);
+    });
+    await page.waitForTimeout(100);
+
+    // Press [ key multiple times
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width is still 1
+    const width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(width).toBe(1);
+  });
+
+  test('] key should not increase stroke width above 20', async () => {
+    // Set stroke width to 20 (maximum)
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(20);
+    });
+    await page.waitForTimeout(100);
+
+    // Press ] key multiple times
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width is still 20
+    const width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+
+    expect(width).toBe(20);
+  });
+
+  test('Multiple [ and ] key presses should work correctly', async () => {
+    // Set stroke width to 10
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(10);
+    });
+    await page.waitForTimeout(100);
+
+    // Press ] three times (10 -> 13)
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.keyboard.press(']');
+    await page.waitForTimeout(100);
+
+    let width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+    expect(width).toBe(13);
+
+    // Press [ five times (13 -> 8)
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.waitForTimeout(100);
+
+    width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+    expect(width).toBe(8);
   });
 });

@@ -1483,7 +1483,23 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
   // Handle keyboard shortcuts
   const handleKeydown = (e: KeyboardEvent) => {
     if (!fabricCanvas) return;
-    
+
+    // [ - Decrease stroke width
+    if (e.key === '[') {
+      const currentWidth = toolbarStore.strokeWidth;
+      const newWidth = Math.max(1, currentWidth - 1);
+      toolbarStore.setStrokeWidth(newWidth);
+      return;
+    }
+
+    // ] - Increase stroke width
+    if (e.key === ']') {
+      const currentWidth = toolbarStore.strokeWidth;
+      const newWidth = Math.min(20, currentWidth + 1);
+      toolbarStore.setStrokeWidth(newWidth);
+      return;
+    }
+
     // ESC - Cancel selection / Deselect
     if (e.key === 'Escape') {
       // Remove selection rectangle if exists
@@ -1493,7 +1509,7 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
         fabricCanvas.renderAll();
         return;
       }
-      
+
       // Deselect active object if exists
       const activeObject = fabricCanvas.getActiveObject();
       if (activeObject) {
