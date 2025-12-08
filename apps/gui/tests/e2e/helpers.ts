@@ -52,12 +52,13 @@ export async function clearAutoSaveData(page: Page): Promise<void> {
   // Clear canvas and history
   await page.evaluate(() => {
     const win = window as {
-      fabricCanvas?: { clear?: () => void; renderAll?: () => void };
+      fabricCanvas?: { clear?: () => void; renderAll?: () => void; backgroundColor?: string };
       historyStore?: { clearHistory?: () => void; saveSnapshot?: (dataUrl: string) => void };
     };
-    
+
     if (win.fabricCanvas?.clear) {
       win.fabricCanvas.clear();
+      win.fabricCanvas.backgroundColor = '#ffffff'; // Set white background
       if (win.fabricCanvas.renderAll) {
         win.fabricCanvas.renderAll();
       }

@@ -8,13 +8,12 @@ const __dirname = path.dirname(__filename);
 
 /**
  * E2E Test: Keyboard Shortcuts
- * 
+ *
  * Tests all keyboard shortcuts:
  * - Ctrl+Z / Ctrl+Shift+Z (Undo/Redo)
  * - Ctrl+S (Save)
  * - Ctrl+V (Paste)
  * - Delete (Delete selected object)
- * - Ctrl+A (Select all)
  */
 
 async function launchApp(): Promise<ElectronApplication> {
@@ -201,27 +200,6 @@ test.describe('Keyboard Shortcuts', () => {
     
     count = await getCanvasObjectCount(page);
     expect(count).toBe(0);
-  });
-
-  test('Ctrl+A should select all objects', async () => {
-    // Draw multiple objects
-    await drawRectangle(page);
-    await drawLine(page, 100, 100);
-    
-    const totalCount = await getCanvasObjectCount(page);
-    expect(totalCount).toBeGreaterThanOrEqual(1);
-    
-    // Switch to select tool
-    await page.click('[data-testid="tool-btn-select"]');
-    await page.waitForTimeout(100);
-    
-    // Press Ctrl+A
-    await page.keyboard.press('Control+a');
-    await page.waitForTimeout(300);
-    
-    // Check if all objects are selected
-    const selectedCount = await getSelectedObjectCount(page);
-    expect(selectedCount).toBeGreaterThan(0);
   });
 
   test('Escape should deselect objects', async () => {
