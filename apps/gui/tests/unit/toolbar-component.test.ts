@@ -146,13 +146,13 @@ describe('Toolbar Component', () => {
       expect((slider.element as HTMLInputElement).value).toBe('10');
     });
 
-    it('should display width value in label', async () => {
+    it('should display stroke value in label', async () => {
       store.setStrokeWidth(5);
       await wrapper.vm.$nextTick();
-      
+
       const labels = wrapper.findAll('.tool-label');
-      const widthLabel = labels.find((l) => l.text().includes('Width:'));
-      expect(widthLabel!.text()).toContain('5px');
+      const strokeLabel = labels.find((l) => l.text().includes('Stroke:'));
+      expect(strokeLabel!.text()).toContain('5px');
     });
 
     it('should update label when slider changes', async () => {

@@ -94,10 +94,10 @@ const getEraserCursor = () => {
 // Update canvas cursor based on current tool
 function updateCanvasCursor() {
   if (!fabricCanvas) return;
-  
+
   const tool = toolbarStore.currentTool;
   let cursor = 'default';
-  
+
   switch (tool) {
     case 'pen':
       cursor = 'crosshair';
@@ -121,15 +121,20 @@ function updateCanvasCursor() {
       cursor = 'default';
       break;
   }
-  
+
   fabricCanvas.defaultCursor = cursor;
   fabricCanvas.hoverCursor = cursor;
-  
+
   // For drawing mode (pen and eraser), also set freeDrawingCursor
   if (fabricCanvas.isDrawingMode) {
     fabricCanvas.freeDrawingCursor = cursor;
   }
-  
+
+  // Immediately update the actual DOM cursor style (without waiting for mouse move)
+  if (fabricCanvas.upperCanvasEl) {
+    fabricCanvas.upperCanvasEl.style.cursor = cursor;
+  }
+
   fabricCanvas.renderAll();
 }
 
@@ -1493,6 +1498,10 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
       const currentWidth = toolbarStore.strokeWidth;
       const newWidth = Math.max(1, currentWidth - 1);
       toolbarStore.setStrokeWidth(newWidth);
+      // Update eraser cursor immediately if eraser tool is active
+      if (toolbarStore.currentTool === 'eraser') {
+        updateCanvasCursor();
+      }
       return;
     }
 
@@ -1501,6 +1510,10 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
       const currentWidth = toolbarStore.strokeWidth;
       const newWidth = Math.min(20, currentWidth + 1);
       toolbarStore.setStrokeWidth(newWidth);
+      // Update eraser cursor immediately if eraser tool is active
+      if (toolbarStore.currentTool === 'eraser') {
+        updateCanvasCursor();
+      }
       return;
     }
 

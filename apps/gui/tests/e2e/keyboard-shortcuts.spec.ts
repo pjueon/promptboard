@@ -507,4 +507,50 @@ test.describe('Keyboard Shortcuts', () => {
     const sliderVisibleWithText = await page.locator('[data-testid="stroke-slider"]').count();
     expect(sliderVisibleWithText).toBe(0);
   });
+
+  test('[ and ] keys should update eraser cursor size', async () => {
+    // Set initial stroke width to 5
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(5);
+    });
+    await page.waitForTimeout(100);
+
+    // Select eraser tool
+    await page.click('[data-testid="tool-btn-eraser"]');
+    await page.waitForTimeout(200);
+
+    // Get initial cursor style
+    const initialCursor = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { defaultCursor?: string } }).fabricCanvas;
+      return canvas?.defaultCursor;
+    });
+
+    // Press ] to increase stroke width
+    await page.keyboard.press(']');
+    await page.waitForTimeout(200);
+
+    // Get updated cursor style
+    const increasedCursor = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { defaultCursor?: string } }).fabricCanvas;
+      return canvas?.defaultCursor;
+    });
+
+    // Cursor should have changed (different SVG size)
+    expect(increasedCursor).not.toBe(initialCursor);
+
+    // Press [ to decrease stroke width
+    await page.keyboard.press('[');
+    await page.keyboard.press('[');
+    await page.waitForTimeout(200);
+
+    // Get final cursor style
+    const decreasedCursor = await page.evaluate(() => {
+      const canvas = (window as { fabricCanvas?: { defaultCursor?: string } }).fabricCanvas;
+      return canvas?.defaultCursor;
+    });
+
+    // Cursor should be different from increased state
+    expect(decreasedCursor).not.toBe(increasedCursor);
+  });
 });
