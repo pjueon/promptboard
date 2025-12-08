@@ -11,7 +11,7 @@ export default {
       text: 'テキスト',
     },
     color: '色',
-    width: '太さ',
+    stroke: '太さ',
     font: 'フォント',
     clear: 'すべてクリア',
     save: '画像として保存',

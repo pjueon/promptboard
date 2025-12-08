@@ -11,7 +11,7 @@ export default {
       text: 'Text',
     },
     color: 'Color',
-    width: 'Width',
+    stroke: 'Stroke',
     font: 'Font',
     clear: 'Clear All',
     save: 'Save As Image',

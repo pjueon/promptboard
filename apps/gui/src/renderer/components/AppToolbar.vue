@@ -35,7 +35,7 @@
       v-if="currentTool !== 'text'"
       class="tool-group"
     >
-      <label class="tool-label">{{ t('toolbar.width') }}: {{ strokeWidth }}px</label>
+      <label class="tool-label">{{ t('toolbar.stroke') }}: {{ strokeWidth }}px</label>
       <input
         type="range"
         min="1"

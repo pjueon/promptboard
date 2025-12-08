@@ -11,7 +11,7 @@ export default {
       text: '텍스트',
     },
     color: '색상',
-    width: '두께',
+    stroke: '두께',
     font: '글꼴',
     clear: '전체 지우기',
     save: '이미지로 저장',
