@@ -1671,14 +1671,26 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
  * Exposed to parent component
  */
 function clearCanvas() {
-  if (fabricCanvas) {
+  if (!fabricCanvas) return;
+
+  // First flatten any objects to background (this handles selection state)
+  // Then clear everything including the background
+  flattenCanvasToBackground(() => {
+    if (!fabricCanvas) return;
+
+    // Now clear the entire canvas including background
     fabricCanvas.clear();
     fabricCanvas.backgroundColor = '#ffffff';
+
+    // Force clear internal selection state (fixes #22)
+    fabricCanvas._activeObject = null;
+    fabricCanvas._hoveredTarget = null;
+
     fabricCanvas.renderAll();
-    
+
     // Save snapshot after clearing
     saveCanvasSnapshot();
-  }
+  });
 }
 
 /**
