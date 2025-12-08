@@ -1484,16 +1484,20 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
   const handleKeydown = (e: KeyboardEvent) => {
     if (!fabricCanvas) return;
 
-    // [ - Decrease stroke width
-    if (e.key === '[') {
+    // Check if user is editing text (to prevent shortcuts from interfering)
+    const activeObject = fabricCanvas.getActiveObject();
+    const isEditingText = activeObject && activeObject.type === 'i-text' && (activeObject as fabric.IText).isEditing;
+
+    // [ - Decrease stroke width (disabled during text editing)
+    if (e.key === '[' && !isEditingText) {
       const currentWidth = toolbarStore.strokeWidth;
       const newWidth = Math.max(1, currentWidth - 1);
       toolbarStore.setStrokeWidth(newWidth);
       return;
     }
 
-    // ] - Increase stroke width
-    if (e.key === ']') {
+    // ] - Increase stroke width (disabled during text editing)
+    if (e.key === ']' && !isEditingText) {
       const currentWidth = toolbarStore.strokeWidth;
       const newWidth = Math.min(20, currentWidth + 1);
       toolbarStore.setStrokeWidth(newWidth);

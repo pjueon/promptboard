@@ -455,4 +455,56 @@ test.describe('Keyboard Shortcuts', () => {
     });
     expect(width).toBe(8);
   });
+
+  test('[ and ] keys should not change stroke width during text editing', async () => {
+    // Set initial stroke width
+    await page.evaluate(() => {
+      const store = (window as { toolbarStore?: { setStrokeWidth: (w: number) => void } }).toolbarStore;
+      store?.setStrokeWidth(10);
+    });
+    await page.waitForTimeout(100);
+
+    // Select text tool and start editing
+    await page.click('[data-testid="tool-btn-text"]');
+    await page.waitForTimeout(100);
+
+    const canvas = await page.locator('canvas').first();
+    const box = await canvas.boundingBox();
+    if (box) {
+      await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+      await page.waitForTimeout(200);
+    }
+
+    // Type text with [ and ] characters
+    await page.keyboard.type('test[brackets]here');
+    await page.waitForTimeout(100);
+
+    // Check that stroke width hasn't changed
+    const width = await page.evaluate(() => {
+      return (window as { toolbarStore?: { strokeWidth: number } }).toolbarStore?.strokeWidth;
+    });
+    expect(width).toBe(10);
+
+    // Exit text editing
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+  });
+
+  test('Stroke width slider should be hidden when text tool is selected', async () => {
+    // Select pen tool first
+    await page.click('[data-testid="tool-btn-pen"]');
+    await page.waitForTimeout(100);
+
+    // Stroke slider should be visible
+    const sliderVisibleWithPen = await page.locator('[data-testid="stroke-slider"]').isVisible();
+    expect(sliderVisibleWithPen).toBe(true);
+
+    // Select text tool
+    await page.click('[data-testid="tool-btn-text"]');
+    await page.waitForTimeout(100);
+
+    // Stroke slider should be hidden
+    const sliderVisibleWithText = await page.locator('[data-testid="stroke-slider"]').count();
+    expect(sliderVisibleWithText).toBe(0);
+  });
 });

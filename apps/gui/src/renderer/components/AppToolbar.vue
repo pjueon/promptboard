@@ -30,14 +30,17 @@
       >
     </div>
 
-    <!-- Stroke Width Slider -->
-    <div class="tool-group">
+    <!-- Stroke Width Slider (hidden when text tool is active) -->
+    <div
+      v-if="currentTool !== 'text'"
+      class="tool-group"
+    >
       <label class="tool-label">{{ t('toolbar.width') }}: {{ strokeWidth }}px</label>
-      <input 
-        type="range" 
-        min="1" 
-        max="20" 
-        :value="strokeWidth" 
+      <input
+        type="range"
+        min="1"
+        max="20"
+        :value="strokeWidth"
         class="stroke-slider"
         data-testid="stroke-slider"
         @input="handleStrokeWidthChange"
