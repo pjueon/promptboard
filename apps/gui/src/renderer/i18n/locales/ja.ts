@@ -52,6 +52,8 @@ export default {
       undo: '元に戻す',
       redo: 'やり直す',
       save: 'キャンバスを保存',
+      increaseStroke: '線を太くする',
+      decreaseStroke: '線を細くする',
       copy: '領域をコピー',
       paste: '画像を貼り付け',
       delete: '選択項目を削除',

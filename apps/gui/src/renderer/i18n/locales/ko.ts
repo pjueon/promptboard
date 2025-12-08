@@ -52,6 +52,8 @@ export default {
       undo: '실행 취소',
       redo: '다시 실행',
       save: '캔버스 저장',
+      increaseStroke: '선 두께 증가',
+      decreaseStroke: '선 두께 감소',
       copy: '영역 복사',
       paste: '이미지 붙여넣기',
       delete: '선택 항목 삭제',

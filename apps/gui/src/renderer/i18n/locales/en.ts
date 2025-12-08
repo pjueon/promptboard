@@ -52,6 +52,8 @@ export default {
       undo: 'Undo',
       redo: 'Redo',
       save: 'Save canvas',
+      increaseStroke: 'Increase stroke width',
+      decreaseStroke: 'Decrease stroke width',
       copy: 'Copy region',
       paste: 'Paste image',
       delete: 'Delete selection',
