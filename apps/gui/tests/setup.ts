@@ -141,6 +141,15 @@ function MockGroup(this: any, objects: any[], options: Record<string, unknown>) 
   this.setCoords = function() {};
 }
 
+function MockControl(this: any, options: Record<string, unknown>) {
+  Object.assign(this, options);
+}
+
+function MockPoint(this: any, x: number, y: number) {
+  this.x = x;
+  this.y = y;
+}
+
 const MockImage = {
   fromURL: function(_url: string, callback: (img: Record<string, unknown>) => void) {
     const mockImg = {
@@ -174,12 +183,15 @@ vi.mock('fabric', () => {
       Group: MockGroup,
       IText: MockIText,
       Image: MockImage,
+      Control: MockControl,
+      Point: MockPoint,
       Object: {
         prototype: {
           controls: { mtr: {} },
         },
       },
       util: {
+        transformPoint: function(p: { x: number, y: number }) { return { x: p.x, y: p.y }; },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         createClass: function(parent: any, properties: any) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
