@@ -1493,10 +1493,10 @@ onMounted(() => {
   // Set initial cursor
   updateCanvasCursor();
   
-  // Register selection:cleared event for flatten on deselect
+  // Register selection:cleared event to save snapshot on deselect
 fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
-    if (isRestoringSnapshot) return; // Skip flatten during undo/redo
-    if (isDrawing) return; // Skip flatten while user is actively drawing a new shape
+    if (isRestoringSnapshot) return; // Skip during undo/redo
+    if (isDrawing) return; // Skip while user is actively drawing a new shape
 
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
