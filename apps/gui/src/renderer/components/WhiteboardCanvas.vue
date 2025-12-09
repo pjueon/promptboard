@@ -16,6 +16,21 @@ import { useHistoryStore } from '../stores/historyStore';
 import { useToastStore } from '../stores/toastStore';
 import { useAutoSaveStore } from '../stores/autoSaveStore';
 import type { CanvasState } from '../types/canvas';
+// NEW: Import from core-whiteboard package
+import {
+  CanvasManager,
+  ToolManager,
+  LineTool,
+  ArrowTool,
+  RectangleTool,
+  EllipseTool,
+  TextTool,
+  PenTool,
+  EraserTool,
+  SelectTool,
+  registerEditableLine,
+  type ToolConfig
+} from '@promptboard/core-whiteboard';
 
 interface FabricCanvasElement extends HTMLCanvasElement {
   fabric?: fabric.Canvas;
@@ -50,21 +65,16 @@ const canvasEl = ref<FabricCanvasElement | null>(null);
 // Fabric.js canvas instance
 let fabricCanvas: ExtendedFabricCanvas | null = null;
 
+// NEW: Core whiteboard managers (for refactored tools)
+let canvasManager: CanvasManager | null = null;
+let toolManager: ToolManager | null = null;
+let selectTool: SelectTool | null = null; // Keep reference for copySelectedRegion
+
 // Shape drawing state
 let isDrawing = false;
-let currentShape: fabric.Object | null = null;
-let startX = 0;
-let startY = 0;
 
 // Flag to prevent saving snapshots during undo/redo
 let isRestoringSnapshot = false;
-
-// Arrow drawing state (for independent Line + Triangle approach)
-let currentArrowLine: fabric.Line | null = null;
-let currentArrowHead: fabric.Triangle | null = null;
-
-// Region selection state
-let selectionRect: fabric.Rect | null = null;
 
 // Mouse event handlers for shape drawing
 let mouseDownHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
@@ -79,22 +89,6 @@ const autoSaveStore = useAutoSaveStore();
 
 // Auto-save cleanup function
 let cleanupAutoSave: (() => void) | null = null;
-
-// Computed eraser cursor with dynamic size
-const getEraserCursor = () => {
-  const size = Math.max(8, Math.min(toolbarStore.strokeWidth * 2, 48)); // Min 8px, Max 48px
-  const halfSize = size / 2;
-  const svgSize = size + 4; // Add border space
-  const halfSvgSize = svgSize / 2;
-  
-  // Create SVG with circle representing eraser size
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">
-    <circle cx="${halfSvgSize}" cy="${halfSvgSize}" r="${halfSize}" fill="white" stroke="black" stroke-width="1" opacity="0.8"/>
-  </svg>`;
-  
-  const encodedSvg = encodeURIComponent(svg);
-  return `url('data:image/svg+xml;utf8,${encodedSvg}') ${halfSvgSize} ${halfSvgSize}, auto`;
-};
 
 // Update canvas cursor based on current tool
 function updateCanvasCursor() {
@@ -117,11 +111,19 @@ function updateCanvasCursor() {
       cursor = 'text';
       break;
     case 'eraser':
-      cursor = getEraserCursor();
-      break;
+      // Eraser cursor is managed by EraserTool
+      return;
     case 'select':
-      cursor = 'crosshair';
-      break;
+      cursor = 'default';
+      // Set move cursor when hovering over objects
+      fabricCanvas.defaultCursor = cursor;
+      fabricCanvas.hoverCursor = 'move';
+
+      // Immediately update the actual DOM cursor style
+      if (fabricCanvas.upperCanvasEl) {
+        fabricCanvas.upperCanvasEl.style.cursor = cursor;
+      }
+      return;
     default:
       cursor = 'default';
       break;
@@ -161,149 +163,22 @@ function cleanupShapeEvents() {
     fabricCanvas.off('mouse:up', mouseUpHandler);
     mouseUpHandler = null;
   }
-  
-  // Remove selection rectangle when switching tools
-  if (selectionRect) {
-    fabricCanvas.remove(selectionRect);
-    selectionRect = null;
-  }
-}
-
-/**
- * Setup line drawing
- */
-function setupLineTool() {
-  if (!fabricCanvas) return;
-
-  cleanupShapeEvents();
-
-  // Make all existing objects non-selectable when switching to drawing tool
-  fabricCanvas.getObjects().forEach(obj => {
-    obj.set({
-      selectable: false,
-      evented: false
-    });
-  });
-  fabricCanvas.discardActiveObject();
-  fabricCanvas.renderAll();
-
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Clear any active selection and make it non-selectable before starting to draw
-    const activeObject = fabricCanvas!.getActiveObject();
-    if (activeObject) {
-      fabricCanvas!.discardActiveObject();
-      activeObject.set({
-        selectable: false,
-        evented: false
-      });
-    }
-
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-
-    // Disable canvas selection during drawing
-    fabricCanvas!.selection = false;
-    
-    currentShape = new fabric.EditableLine([startX, startY, startX, startY], {
-      stroke: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      selectable: false,
-      evented: false,
-      perPixelTargetFind: true,
-      strokeUniform: true, // Maintain stroke width when scaling
-      originX: 'center',
-      originY: 'center',
-      type: 'editableLine',
-    });
-    
-    if (currentShape) {
-      fabricCanvas!.add(currentShape);
-    }
-  };
-  
-  mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !currentShape) return;
-    
-    const pointer = e.pointer;
-    if (!pointer) return;
-    let targetX = pointer.x;
-    let targetY = pointer.y;
-
-    // Snap to 45 degrees if Shift is pressed
-    if ((e.e as MouseEvent).shiftKey) {
-      const dx = targetX - startX;
-      const dy = targetY - startY;
-      
-      if (dx !== 0 || dy !== 0) {
-        const angle = Math.atan2(dy, dx);
-        const length = Math.sqrt(dx * dx + dy * dy);
-        
-        // Snap to 45 degrees (PI/4)
-        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
-        
-        targetX = startX + length * Math.cos(snapAngle);
-        targetY = startY + length * Math.sin(snapAngle);
-      }
-    }
-
-    (currentShape as fabric.Line).set({
-      x2: targetX,
-      y2: targetY,
-    });
-    
-    fabricCanvas!.renderAll();
-  };  
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-
-    // Re-enable canvas selection
-    fabricCanvas!.selection = true;
-
-    if (currentShape) {
-      currentShape.set({
-        selectable: true,
-        evented: true,
-      });
-      currentShape.setCoords(); // Update object coordinates
-
-      // Select the newly created shape
-      // fabric.js will automatically clear any previous selection
-      fabricCanvas!.setActiveObject(currentShape);
-
-      // Save snapshot after object creation and selection
-      saveCanvasSnapshot();
-    }
-    currentShape = null;
-
-    fabricCanvas!.renderAll(); // Re-render canvas
-
-    // Switch back to select mode
-    toolbarStore.setTool('select');
-
-    isDrawing = false;
-  };
-
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
 }
 
 /**
  * Update arrow head position and angle based on line coordinates
+ * Used when restoring canvas state from JSON
  */
 function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
   if (!line || !triangle) return;
 
-  // Use getPointByOrigin to get the actual transformed coordinates of the line endpoints
+  // Use calcLinePoints to get the actual transformed coordinates of the line endpoints
   // This properly handles all transformations including negative scaling
   const point1 = line.calcLinePoints();
-  
+
   // Get transformation matrix to transform local coordinates to canvas coordinates
   const transform = line.calcTransformMatrix();
-  
+
   // Transform the line endpoints using the transformation matrix
   const transformPoint = (x: number, y: number) => {
     return fabric.util.transformPoint(
@@ -311,7 +186,7 @@ function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
       transform
     );
   };
-  
+
   const start = transformPoint(point1.x1, point1.y1);
   const end = transformPoint(point1.x2, point1.y2);
 
@@ -330,610 +205,10 @@ function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
 }
 
 /**
- * Setup arrow tool
- */
-function setupArrowTool() {
-  if (!fabricCanvas) return;
-
-  cleanupShapeEvents();
-
-  // Make all existing objects non-selectable when switching to drawing tool
-  fabricCanvas.getObjects().forEach(obj => {
-    obj.set({
-      selectable: false,
-      evented: false
-    });
-  });
-  fabricCanvas.discardActiveObject();
-  fabricCanvas.renderAll();
-
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Clear any active selection and make it non-selectable before starting to draw
-    const activeObject = fabricCanvas!.getActiveObject();
-    if (activeObject) {
-      fabricCanvas!.discardActiveObject();
-      activeObject.set({
-        selectable: false,
-        evented: false
-      });
-    }
-
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-
-    // Disable canvas selection during drawing
-    fabricCanvas!.selection = false;
-
-    // Create Line (the shaft of the arrow)
-    currentArrowLine = new fabric.EditableLine([startX, startY, startX, startY], {
-      stroke: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      selectable: false,
-      evented: false,
-      perPixelTargetFind: true,
-      strokeUniform: true,
-      originX: 'center',
-      originY: 'center',
-      type: 'editableLine',
-    });
-
-    // Calculate arrow head size based on stroke width
-    const headSize = Math.max(15, toolbarStore.strokeWidth * 3);
-
-    // Create Triangle (the arrow head)
-    currentArrowHead = new fabric.Triangle({
-      left: startX,
-      top: startY,
-      width: headSize,
-      height: headSize,
-      fill: toolbarStore.color,
-      selectable: false,
-      evented: false,
-      hasBorders: false,
-      hasControls: false,
-      originX: 'center',
-      originY: 'center',
-      angle: 0,
-    });
-
-    if (currentArrowLine && currentArrowHead) {
-      fabricCanvas!.add(currentArrowLine);
-      fabricCanvas!.add(currentArrowHead);
-    }
-  };
-
-  mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !currentArrowLine || !currentArrowHead) return;
-
-    const pointer = e.pointer;
-    if (!pointer) return;
-    let targetX = pointer.x;
-    let targetY = pointer.y;
-
-    // Snap to 45 degrees if Shift is pressed
-    if ((e.e as MouseEvent).shiftKey) {
-      const dx = targetX - startX;
-      const dy = targetY - startY;
-
-      if (dx !== 0 || dy !== 0) {
-        const angle = Math.atan2(dy, dx);
-        const length = Math.sqrt(dx * dx + dy * dy);
-
-        // Snap to 45 degrees (PI/4)
-        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
-
-        targetX = startX + length * Math.cos(snapAngle);
-        targetY = startY + length * Math.sin(snapAngle);
-      }
-    }
-
-    // Update line end point
-    currentArrowLine.set({
-      x2: targetX,
-      y2: targetY,
-    });
-    currentArrowLine.setCoords();
-
-    // Calculate arrow head position and angle
-    const dx = targetX - startX;
-    const dy = targetY - startY;
-    const angle = Math.atan2(dy, dx) * (180 / Math.PI); // Convert to degrees for Fabric.js
-
-    // Position triangle at the end of the line
-    currentArrowHead.set({
-      left: targetX,
-      top: targetY,
-      angle: angle + 90, // Rotate 90 degrees because Triangle points upward by default
-    });
-    currentArrowHead.setCoords();
-
-    fabricCanvas!.renderAll();
-  };
-
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-
-    // Re-enable canvas selection
-    fabricCanvas!.selection = true;
-
-    if (currentArrowLine && currentArrowHead) {
-      // Capture references in local scope for closure
-      const arrowLine = currentArrowLine;
-      const arrowHead = currentArrowHead;
-
-      // Generate unique ID for this arrow pair
-      const arrowId = `arrow_${Date.now()}_${Math.random()}`;
-
-      // Link line and triangle with custom data
-      // @ts-expect-error - adding custom property
-      arrowLine.arrowId = arrowId;
-      // @ts-expect-error - adding custom property
-      arrowLine.arrowHead = arrowHead;
-      // @ts-expect-error - adding custom property
-      arrowHead.arrowId = arrowId;
-      // @ts-expect-error - adding custom property
-      arrowHead.arrowLine = arrowLine;
-
-      // Make line selectable but keep triangle non-selectable
-      arrowLine.set({
-        selectable: true,
-        evented: true,
-      });
-
-      // Triangle should not be selectable (it follows the line)
-      arrowHead.set({
-        selectable: false,
-        evented: false,
-        hasBorders: false,
-        hasControls: false,
-      });
-
-      arrowLine.setCoords();
-      arrowHead.setCoords();
-
-      // Add event listeners to line for modifications
-      // Use closure variables to avoid null reference
-      const updateHandler = () => {
-        updateArrowHead(arrowLine, arrowHead);
-        fabricCanvas!.renderAll();
-      };
-
-      arrowLine.on('moving', updateHandler);
-      arrowLine.on('scaling', updateHandler);
-      arrowLine.on('rotating', updateHandler);
-      arrowLine.on('modified', updateHandler);
-
-      // Select the line
-      // fabric.js will automatically clear any previous selection
-      fabricCanvas!.setActiveObject(arrowLine);
-    }
-
-    currentArrowLine = null;
-    currentArrowHead = null;
-
-    fabricCanvas!.renderAll();
-    
-    // Save snapshot for undo/redo
-    saveCanvasSnapshot();
-
-    // Switch back to select mode
-    toolbarStore.setTool('select');
-
-    isDrawing = false;
-  };
-  
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
-}
-
-/**
- * Setup rectangle drawing
- */
-function setupRectangleTool() {
-  if (!fabricCanvas) return;
-
-  cleanupShapeEvents();
-
-  // Make all existing objects non-selectable when switching to drawing tool
-  fabricCanvas.getObjects().forEach(obj => {
-    obj.set({
-      selectable: false,
-      evented: false
-    });
-  });
-  fabricCanvas.discardActiveObject();
-  fabricCanvas.renderAll();
-  
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Clear any active selection and make it non-selectable before starting to draw
-    const activeObject = fabricCanvas!.getActiveObject();
-    if (activeObject) {
-      fabricCanvas!.discardActiveObject();
-      activeObject.set({
-        selectable: false,
-        evented: false
-      });
-    }
-
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-
-    // Disable canvas selection during drawing
-    fabricCanvas!.selection = false;
-
-    currentShape = new fabric.Rect({
-      left: startX,
-      top: startY,
-      width: 0,
-      height: 0,
-      stroke: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      fill: 'transparent', // Completely transparent fill
-      selectable: false,
-      evented: false,
-      hasBorders: false,
-      hasControls: false,
-    });
-    
-    fabricCanvas!.add(currentShape);
-  };
-  
-  mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !currentShape) return;
-    
-    const pointer = e.pointer;
-    if (!pointer) return;
-    let width = pointer.x - startX;
-    let height = pointer.y - startY;
-    
-    // Constrain to square if Shift is pressed
-    if ((e.e as MouseEvent).shiftKey) {
-      const size = Math.max(Math.abs(width), Math.abs(height));
-      width = width < 0 ? -size : size;
-      height = height < 0 ? -size : size;
-    }
-    
-    // Handle negative dimensions (dragging left or up)
-    (currentShape as fabric.Rect).set({
-      left: width < 0 ? startX + width : startX,
-      top: height < 0 ? startY + height : startY,
-      width: Math.abs(width),
-      height: Math.abs(height),
-    });
-    
-    fabricCanvas!.renderAll();
-  };  
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-    
-    // Re-enable canvas selection
-    fabricCanvas!.selection = true;
-    
-    if (currentShape) {
-      currentShape.set({
-        selectable: true,
-        evented: true,
-        hasBorders: true,
-        hasControls: true,
-        hoverCursor: 'move',
-        moveCursor: 'move',
-      });
-      currentShape.setCoords(); // Update object coordinates
-
-      // Select the newly created shape
-      // fabric.js will automatically clear any previous selection
-      fabricCanvas!.setActiveObject(currentShape);
-
-      // Save snapshot after object creation and selection
-      saveCanvasSnapshot();
-    }
-    currentShape = null;
-
-    fabricCanvas!.renderAll(); // Re-render canvas
-
-    // Switch back to select mode
-    toolbarStore.setTool('select');
-
-    isDrawing = false;
-  };
-
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
-}
-
-/**
- * Setup ellipse tool (formerly circle)
- */
-function setupCircleTool() {
-  if (!fabricCanvas) return;
-
-  cleanupShapeEvents();
-
-  // Make all existing objects non-selectable when switching to drawing tool
-  fabricCanvas.getObjects().forEach(obj => {
-    obj.set({
-      selectable: false,
-      evented: false
-    });
-  });
-  fabricCanvas.discardActiveObject();
-  fabricCanvas.renderAll();
-  
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Clear any active selection and make it non-selectable before starting to draw
-    const activeObject = fabricCanvas!.getActiveObject();
-    if (activeObject) {
-      fabricCanvas!.discardActiveObject();
-      activeObject.set({
-        selectable: false,
-        evented: false
-      });
-    }
-
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-
-    // Disable canvas selection during drawing
-    fabricCanvas!.selection = false;
-
-    currentShape = new fabric.Ellipse({
-      left: startX,
-      top: startY,
-      rx: 0,
-      ry: 0,
-      stroke: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      fill: 'transparent', // Completely transparent fill
-      selectable: false,
-      evented: false,
-      hasBorders: false,
-      hasControls: false,
-      originX: 'left',
-      originY: 'top',
-    });
-    
-    fabricCanvas!.add(currentShape);
-  };
-  
-  mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !currentShape) return;
-    
-    const pointer = e.pointer;
-    if (!pointer) return;
-    let width = pointer.x - startX;
-    let height = pointer.y - startY;
-    
-    // Shift key -> Circle (equal width/height)
-    if ((e.e as MouseEvent).shiftKey) {
-       const maxDim = Math.max(Math.abs(width), Math.abs(height));
-       width = width < 0 ? -maxDim : maxDim;
-       height = height < 0 ? -maxDim : maxDim;
-    }
-    
-    const rx = Math.abs(width) / 2;
-    const ry = Math.abs(height) / 2;
-
-    (currentShape as fabric.Ellipse).set({
-      left: width < 0 ? startX + width : startX,
-      top: height < 0 ? startY + height : startY,
-      rx: rx,
-      ry: ry,
-    });
-    
-    fabricCanvas!.renderAll();
-  };
-  
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-    
-    // Re-enable canvas selection
-    fabricCanvas!.selection = true;
-    
-    if (currentShape) {
-      currentShape.set({
-        selectable: true,
-        evented: true,
-        hasBorders: true,
-        hasControls: true,
-        hoverCursor: 'move',
-        moveCursor: 'move',
-      });
-      currentShape.setCoords(); // Update object coordinates
-
-      // Select the newly created shape
-      // fabric.js will automatically clear any previous selection
-      fabricCanvas!.setActiveObject(currentShape);
-
-      // Save snapshot after object creation and selection
-      saveCanvasSnapshot();
-    }
-    currentShape = null;
-
-    fabricCanvas!.renderAll(); // Re-render canvas
-
-    // Switch back to select mode
-    toolbarStore.setTool('select');
-    
-    isDrawing = false;
-  };
-
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
-}
-
-/**
- * Setup text tool
- */
-function setupTextTool() {
-  if (!fabricCanvas) return;
-  
-  cleanupShapeEvents();
-  
-  mouseDownHandler = (e: fabric.IEvent) => {
-    const pointer = e.pointer;
-    if (!pointer) return;
-    
-    const text = new fabric.IText('', {
-      left: pointer.x,
-      top: pointer.y,
-      fill: toolbarStore.color,
-      fontSize: toolbarStore.fontSize,
-    });
-    
-    fabricCanvas!.add(text);
-    fabricCanvas!.setActiveObject(text);
-    text.enterEditing();
-    text.setCoords(); // Update object coordinates
-    
-    // Save snapshot when text editing exits
-    text.on('editing:exited', () => {
-      // Save snapshot after text is finalized
-      setTimeout(() => {
-        saveCanvasSnapshot();
-      }, 100);
-    });
-    
-    fabricCanvas!.renderAll(); // Re-render canvas
-    
-    // Don't switch to select mode immediately - let user finish typing
-    // User can manually switch when done
-  };
-  
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-}
-
-/**
- * Setup eraser tool - white brush (like Paint)
- */
-function setupEraserTool() {
-  if (!fabricCanvas) return;
-  
-  cleanupShapeEvents();
-  
-  // Enable drawing mode with white color
-  fabricCanvas.isDrawingMode = true;
-  fabricCanvas.selection = false;
-  
-  // Set white color for eraser (like Paint)
-  if (fabricCanvas.freeDrawingBrush) {
-    fabricCanvas.freeDrawingBrush.color = '#ffffff';
-    fabricCanvas.freeDrawingBrush.width = toolbarStore.strokeWidth;
-  }
-  
-  // Set eraser cursor
-  const eraserCursor = getEraserCursor();
-  fabricCanvas.freeDrawingCursor = eraserCursor;
-}
-
-/**
- * Setup region selection tool - Paint-style area selection
- */
-function setupRegionSelectTool() {
-  if (!fabricCanvas) return;
-  
-  cleanupShapeEvents();
-  
-  // Remove any existing selection rectangle
-  if (selectionRect) {
-    fabricCanvas.remove(selectionRect);
-    selectionRect = null;
-  }
-  
-  // Enable object selection initially
-  fabricCanvas.selection = true;
-  
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Check if clicking on an existing object
-    const target = e.target;
-    if (target) {
-      // Clicked on an object, allow normal selection
-      return;
-    }
-    
-    // Clicked on empty space, start region selection
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-    
-    // Remove previous selection if exists
-    if (selectionRect) {
-      fabricCanvas!.remove(selectionRect);
-      selectionRect = null;
-    }
-    
-    // Disable object selection during region drawing
-    fabricCanvas!.selection = false;
-    fabricCanvas!.discardActiveObject();
-    
-    // Create selection rectangle with dashed border
-    selectionRect = new fabric.Rect({
-      left: startX,
-      top: startY,
-      width: 0,
-      height: 0,
-      fill: 'rgba(0, 0, 0, 0)', // Transparent fill
-      stroke: '#000000',
-      strokeWidth: 1,
-      strokeDashArray: [5, 5], // Dashed line
-      selectable: false,
-      evented: false,
-    });
-    
-    fabricCanvas!.add(selectionRect);
-  };
-  
-mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !selectionRect) return;
-    
-    const pointer = e.pointer;
-    if (!pointer) return;
-    const width = pointer.x - startX;
-    const height = pointer.y - startY;
-    
-    // Handle negative dimensions (dragging left or up)
-    selectionRect.set({
-      left: width < 0 ? pointer.x : startX,
-      top: height < 0 ? pointer.y : startY,
-      width: Math.abs(width),
-      height: Math.abs(height),
-    });
-    
-    fabricCanvas!.renderAll();
-  };
-  
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-    isDrawing = false;
-    
-    // Re-enable object selection after region drawing
-    fabricCanvas!.selection = true;
-    
-    // Keep selection rectangle on canvas for deletion
-  };
-  
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
-}
-
-/**
  * Copy the currently selected region to clipboard
  */
 function copySelectedRegion() {
+  const selectionRect = selectTool?.getSelectionRect();
   if (!selectionRect || !fabricCanvas) return;
   
   const rect = selectionRect;
@@ -1012,8 +287,9 @@ function copySelectedRegion() {
  * Delete the currently selected region
  */
 function deleteSelectedRegion() {
+  const selectionRect = selectTool?.getSelectionRect();
   if (!selectionRect || !fabricCanvas) return;
-  
+
   const rect = selectionRect;
   const left = rect.left!;
   const top = rect.top!;
@@ -1023,8 +299,7 @@ function deleteSelectedRegion() {
   // Skip if selection is too small (less than 1x1 pixel)
   if (width < 1 || height < 1) {
     // Just remove the selection rectangle
-    fabricCanvas.remove(selectionRect);
-    selectionRect = null;
+    selectTool?.removeSelectionRect();
     fabricCanvas.renderAll();
     return;
   }
@@ -1041,9 +316,8 @@ function deleteSelectedRegion() {
   });
   
   // Remove selection rectangle first
-  fabricCanvas.remove(selectionRect);
-  selectionRect = null;
-  
+  selectTool?.removeSelectionRect();
+
   // Add white rectangle
   fabricCanvas.add(whiteRect);
   fabricCanvas.renderAll();
@@ -1221,7 +495,7 @@ function flattenCanvasToBackground(callback?: () => void) {
     const currentObjects = fabricCanvas.getObjects().slice();
 
     // If user started drawing a new shape, don't remove it!
-    if (isDrawing) {
+    if (isDrawing || toolManager?.isDrawing()) {
       // Just set the background image without removing objects
       fabricCanvas.setBackgroundImage(img, () => {
         fabricCanvas!.backgroundColor = null;
@@ -1270,30 +544,67 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
     fabricCanvas.freeDrawingBrush.color = toolbarStore.color;
   }
 
+  // Deactivate any active toolManager tool when switching to a non-toolManager tool
+  const toolManagerTools = ['line', 'arrow', 'rectangle', 'ellipse', 'text', 'eraser', 'select']; // List of tools managed by toolManager
+  if (toolManager && toolManager.getActiveToolType() && !toolManagerTools.includes(tool)) {
+    // Get the active tool and manually deactivate it
+    const activeToolType = toolManager.getActiveToolType();
+    if (activeToolType) {
+      const activeTool = toolManager['tools'].get(activeToolType);
+      if (activeTool) {
+        activeTool.deactivate();
+      }
+    }
+  }
+
   switch (tool) {
     case 'pen':
-      fabricCanvas.isDrawingMode = true;
+      // Use refactored PenTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('pen');
+      }
       break;
     case 'eraser':
-      setupEraserTool();
+      // Use refactored EraserTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('eraser');
+      }
       break;
     case 'select':
-      setupRegionSelectTool();
+      // Use refactored SelectTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('select');
+      }
       break;
     case 'line':
-      setupLineTool();
+      // Use refactored LineTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('line');
+      }
       break;
     case 'arrow':
-      setupArrowTool();
+      // Use refactored ArrowTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('arrow');
+      }
       break;
     case 'rectangle':
-      setupRectangleTool();
+      // Use refactored RectangleTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('rectangle');
+      }
       break;
     case 'ellipse':
-      setupCircleTool();
+      // Use refactored EllipseTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('ellipse');
+      }
       break;
     case 'text':
-      setupTextTool();
+      // Use refactored TextTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('text');
+      }
       break;
   }
 }
@@ -1308,10 +619,14 @@ watch(() => toolbarStore.currentTool, (newTool) => {
 watch(() => toolbarStore.strokeWidth, (newWidth) => {
   if (!fabricCanvas || !fabricCanvas.freeDrawingBrush) return;
   fabricCanvas.freeDrawingBrush.width = newWidth;
-  
-  // Update eraser cursor size
-  if (toolbarStore.currentTool === 'eraser') {
-    updateCanvasCursor();
+
+  // Update toolManager config (including EraserTool which updates cursor automatically)
+  if (toolManager) {
+    toolManager.updateConfig({
+      color: toolbarStore.color,
+      strokeWidth: newWidth,
+      fontSize: toolbarStore.fontSize
+    });
   }
 });
 
@@ -1321,6 +636,27 @@ watch(() => toolbarStore.color, (newColor) => {
   // Don't change color when eraser is active
   if (toolbarStore.currentTool !== 'eraser') {
     fabricCanvas.freeDrawingBrush.color = newColor;
+  }
+
+  // Update toolManager config
+  if (toolManager) {
+    toolManager.updateConfig({
+      color: newColor,
+      strokeWidth: toolbarStore.strokeWidth,
+      fontSize: toolbarStore.fontSize
+    });
+  }
+});
+
+// Watch for font size changes
+watch(() => toolbarStore.fontSize, (newFontSize) => {
+  // Update toolManager config
+  if (toolManager) {
+    toolManager.updateConfig({
+      color: toolbarStore.color,
+      strokeWidth: toolbarStore.strokeWidth,
+      fontSize: newFontSize
+    });
   }
 });
 
@@ -1335,9 +671,8 @@ function addImageToCanvas(blob: Blob, position?: { x: number; y: number }, sourc
   if (!fabricCanvas) return;
 
   // Remove selection rectangle if exists
-  if (selectionRect) {
-    fabricCanvas.remove(selectionRect);
-    selectionRect = null;
+  if (selectTool?.getSelectionRect()) {
+    selectTool?.removeSelectionRect();
     fabricCanvas.renderAll();
   }
 
@@ -1511,20 +846,16 @@ function handleCanvasDelete(canvas: fabric.Canvas) {
 onMounted(() => {
   if (!canvasEl.value) return;
 
-  // Initialize Fabric.js canvas
-  fabricCanvas = new fabric.Canvas(canvasEl.value, {
+  // NEW: Initialize core whiteboard managers
+  registerEditableLine(); // Register EditableLine for deserialization
+  canvasManager = new CanvasManager(canvasEl.value, {
     width: window.innerWidth,
-    height: window.innerHeight - 56, // Subtract toolbar height
-    backgroundColor: '#ffffff',
-    isDrawingMode: false, // Will be set by applyToolState
-    targetFindTolerance: 10, // Increase click detection area (pixels)
-    perPixelTargetFind: true, // Enable precise pixel detection
-    uniformScaling: false, // Default to free resizing, Shift to preserve aspect ratio
-    // Custom cursors for object manipulation
-    hoverCursor: 'move', // Cursor when hovering over an object
-    moveCursor: 'move', // Cursor when moving an object
-    rotationCursor: 'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAxMmEzIDMgMCAwIDAtMy0zSDdhM2EzYTAgMCAxIDAtMy0zIDkgOSAwIDEgMCAwIDE4IDkgOSAwIDAgMC05LTkiLz48cGF0aCBkPSJNMTEgNyAxNCA0bC0zLTMiLz48L3N2Zz4=) 12 12, auto', // Rotation cursor (refresh icon)
+    height: window.innerHeight - 56,
+    backgroundColor: '#ffffff'
   });
+
+  // Get the single canvas instance from the manager
+  fabricCanvas = canvasManager.getCanvas() as ExtendedFabricCanvas;
 
   // Store fabricCanvas reference on canvas element for main process access
   canvasEl.value.fabric = fabricCanvas as fabric.Canvas;
@@ -1568,6 +899,76 @@ onMounted(() => {
     fabricCanvas.freeDrawingBrush.width = toolbarStore.strokeWidth;
   }
 
+  const toolConfig: ToolConfig = {
+    color: toolbarStore.color,
+    strokeWidth: toolbarStore.strokeWidth,
+    fontSize: toolbarStore.fontSize
+  };
+
+  toolManager = new ToolManager(fabricCanvas as fabric.Canvas, toolConfig);
+
+  // Register refactored tools
+  const lineTool = new LineTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot(),
+    () => toolbarStore.setTool('select') // Switch back to select mode after drawing
+  );
+  toolManager.registerTool('line', lineTool);
+
+  const rectangleTool = new RectangleTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot(),
+    () => toolbarStore.setTool('select')
+  );
+  toolManager.registerTool('rectangle', rectangleTool);
+
+  const ellipseTool = new EllipseTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot(),
+    () => toolbarStore.setTool('select')
+  );
+  toolManager.registerTool('ellipse', ellipseTool);
+
+  const arrowTool = new ArrowTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot(),
+    () => toolbarStore.setTool('select')
+  );
+  toolManager.registerTool('arrow', arrowTool);
+
+  const textTool = new TextTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot()
+    // Note: No onComplete callback - user manually switches when done typing
+  );
+  toolManager.registerTool('text', textTool);
+
+  const penTool = new PenTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig
+    // Note: No callbacks - pen uses path:created event for snapshot saving
+  );
+  toolManager.registerTool('pen', penTool);
+
+  const eraserTool = new EraserTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig
+    // Note: No callbacks - eraser uses path:created event for snapshot saving
+  );
+  toolManager.registerTool('eraser', eraserTool);
+
+  selectTool = new SelectTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig
+    // Note: No callbacks - select tool doesn't auto-complete or save snapshots
+  );
+  toolManager.registerTool('select', selectTool);
+
   // Apply initial tool state
   applyToolState(toolbarStore.currentTool);
   
@@ -1577,7 +978,7 @@ onMounted(() => {
   // Register selection:cleared event to save snapshot on deselect
 fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
     if (isRestoringSnapshot) return; // Skip during undo/redo
-    if (isDrawing) return; // Skip while user is actively drawing a new shape
+    if (isDrawing || toolManager?.isDrawing()) return; // Skip while user is actively drawing a new shape
 
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
@@ -1665,9 +1066,8 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     // ESC - Cancel selection / Deselect
     if (e.key === 'Escape') {
       // Remove selection rectangle if exists
-      if (selectionRect) {
-        fabricCanvas.remove(selectionRect);
-        selectionRect = null;
+      if (selectTool?.getSelectionRect()) {
+        selectTool?.removeSelectionRect();
         fabricCanvas.renderAll();
         return;
       }
@@ -1684,7 +1084,7 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     // Ctrl+C - Copy selected region
     if (e.ctrlKey && e.key === 'c') {
       // Check if region is selected (select tool with selection rectangle)
-      if (toolbarStore.currentTool === 'select' && selectionRect) {
+      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
         e.preventDefault();
         copySelectedRegion();
         return;
@@ -1694,7 +1094,7 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     // Delete key
     if (e.key === 'Delete') {
       // Check if region is selected (select tool with selection rectangle)
-      if (toolbarStore.currentTool === 'select' && selectionRect) {
+      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
         deleteSelectedRegion();
         return;
       }
@@ -1736,12 +1136,11 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
 
   // Handle window resize
   const handleResize = () => {
-    if (!fabricCanvas) return;
-    fabricCanvas.setDimensions({
-      width: window.innerWidth,
-      height: window.innerHeight - 56, // Subtract toolbar height
-    });
-    fabricCanvas.renderAll();
+    if (!canvasManager) return;
+    canvasManager.resize(
+      window.innerWidth,
+      window.innerHeight - 56 // Subtract toolbar height
+    );
   };
 
   window.addEventListener('resize', handleResize);

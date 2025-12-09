@@ -22,7 +22,9 @@
     "promptboard": "./scripts/cli.mjs"
   },
   "scripts": {
+    "predev": "npm run build --prefix ../../packages/core-whiteboard",
     "dev": "vite",
+    "prebuild": "npm run build --prefix ../../packages/core-whiteboard",
     "build": "vite build && npm run build:mcp && npm run verify",
     "build:mcp": "node scripts/build-mcp.js",
     "verify": "node scripts/verify-build.js",
@@ -119,6 +121,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
+    "@promptboard/core-whiteboard": "*",
     "adm-zip": "^0.5.10",
     "ws": "^8.18.3"
   },
