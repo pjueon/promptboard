@@ -177,7 +177,28 @@ function setupLineTool() {
 
   cleanupShapeEvents();
 
-  mouseDownHandler = (e: fabric.IEvent) => {    isDrawing = true;
+  // Make all existing objects non-selectable when switching to drawing tool
+  fabricCanvas.getObjects().forEach(obj => {
+    obj.set({
+      selectable: false,
+      evented: false
+    });
+  });
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
+
+  mouseDownHandler = (e: fabric.IEvent) => {
+    // Clear any active selection and make it non-selectable before starting to draw
+    const activeObject = fabricCanvas!.getActiveObject();
+    if (activeObject) {
+      fabricCanvas!.discardActiveObject();
+      activeObject.set({
+        selectable: false,
+        evented: false
+      });
+    }
+
+    isDrawing = true;
     const pointer = e.pointer;
     if (!pointer) return;
     startX = pointer.x;
@@ -316,7 +337,27 @@ function setupArrowTool() {
 
   cleanupShapeEvents();
 
+  // Make all existing objects non-selectable when switching to drawing tool
+  fabricCanvas.getObjects().forEach(obj => {
+    obj.set({
+      selectable: false,
+      evented: false
+    });
+  });
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
+
   mouseDownHandler = (e: fabric.IEvent) => {
+    // Clear any active selection and make it non-selectable before starting to draw
+    const activeObject = fabricCanvas!.getActiveObject();
+    if (activeObject) {
+      fabricCanvas!.discardActiveObject();
+      activeObject.set({
+        selectable: false,
+        evented: false
+      });
+    }
+
     isDrawing = true;
     const pointer = e.pointer;
     if (!pointer) return;
@@ -494,10 +535,30 @@ function setupArrowTool() {
  */
 function setupRectangleTool() {
   if (!fabricCanvas) return;
-  
+
   cleanupShapeEvents();
+
+  // Make all existing objects non-selectable when switching to drawing tool
+  fabricCanvas.getObjects().forEach(obj => {
+    obj.set({
+      selectable: false,
+      evented: false
+    });
+  });
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
   
   mouseDownHandler = (e: fabric.IEvent) => {
+    // Clear any active selection and make it non-selectable before starting to draw
+    const activeObject = fabricCanvas!.getActiveObject();
+    if (activeObject) {
+      fabricCanvas!.discardActiveObject();
+      activeObject.set({
+        selectable: false,
+        evented: false
+      });
+    }
+
     isDrawing = true;
     const pointer = e.pointer;
     if (!pointer) return;
@@ -593,10 +654,30 @@ function setupRectangleTool() {
  */
 function setupCircleTool() {
   if (!fabricCanvas) return;
-  
+
   cleanupShapeEvents();
+
+  // Make all existing objects non-selectable when switching to drawing tool
+  fabricCanvas.getObjects().forEach(obj => {
+    obj.set({
+      selectable: false,
+      evented: false
+    });
+  });
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
   
   mouseDownHandler = (e: fabric.IEvent) => {
+    // Clear any active selection and make it non-selectable before starting to draw
+    const activeObject = fabricCanvas!.getActiveObject();
+    if (activeObject) {
+      fabricCanvas!.discardActiveObject();
+      activeObject.set({
+        selectable: false,
+        evented: false
+      });
+    }
+
     isDrawing = true;
     const pointer = e.pointer;
     if (!pointer) return;
@@ -1500,7 +1581,17 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
 
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
-      // Save snapshot on deselection, without flattening
+      // Make deselected objects non-selectable to prevent interference
+      // This ensures only the last modified object remains interactive
+      deselected.forEach(obj => {
+        obj.set({
+          selectable: false,
+          evented: false
+        });
+      });
+      fabricCanvas!.renderAll();
+
+      // Save snapshot on deselection
       saveCanvasSnapshot();
     }
   });
