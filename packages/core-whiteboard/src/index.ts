@@ -1,2 +1,28 @@
-// Placeholder - to be implemented
-export {};
+/**
+ * @promptboard/core-whiteboard
+ * Framework-agnostic whiteboard engine powered by Fabric.js
+ */
+
+// Core managers
+export { CanvasManager } from './core/CanvasManager';
+export type { CanvasManagerConfig } from './core/CanvasManager';
+export { ToolManager } from './core/ToolManager';
+
+// Tools
+export { Tool } from './tools/base/Tool';
+export { ShapeTool } from './tools/base/ShapeTool';
+export { LineTool } from './tools/LineTool';
+
+// Fabric objects
+export { EditableLine, registerEditableLine } from './fabric-objects/EditableLine';
+
+// Types
+export type {
+  ToolType,
+  Point,
+  ToolConfig,
+  CanvasState,
+  MouseEvent,
+  SnapshotCallback,
+  CleanupFunction,
+} from './types/index';

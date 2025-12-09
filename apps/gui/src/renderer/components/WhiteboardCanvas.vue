@@ -16,6 +16,14 @@ import { useHistoryStore } from '../stores/historyStore';
 import { useToastStore } from '../stores/toastStore';
 import { useAutoSaveStore } from '../stores/autoSaveStore';
 import type { CanvasState } from '../types/canvas';
+// NEW: Import from core-whiteboard package
+import {
+  CanvasManager,
+  ToolManager,
+  LineTool,
+  registerEditableLine,
+  type ToolConfig
+} from '@promptboard/core-whiteboard';
 
 interface FabricCanvasElement extends HTMLCanvasElement {
   fabric?: fabric.Canvas;
@@ -49,6 +57,10 @@ const canvasEl = ref<FabricCanvasElement | null>(null);
 
 // Fabric.js canvas instance
 let fabricCanvas: ExtendedFabricCanvas | null = null;
+
+// NEW: Core whiteboard managers (for refactored tools)
+let canvasManager: CanvasManager | null = null;
+let toolManager: ToolManager | null = null;
 
 // Shape drawing state
 let isDrawing = false;
@@ -1221,7 +1233,7 @@ function flattenCanvasToBackground(callback?: () => void) {
     const currentObjects = fabricCanvas.getObjects().slice();
 
     // If user started drawing a new shape, don't remove it!
-    if (isDrawing) {
+    if (isDrawing || toolManager?.isDrawing()) {
       // Just set the background image without removing objects
       fabricCanvas.setBackgroundImage(img, () => {
         fabricCanvas!.backgroundColor = null;
@@ -1270,6 +1282,19 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
     fabricCanvas.freeDrawingBrush.color = toolbarStore.color;
   }
 
+  // Deactivate any active toolManager tool when switching to a non-toolManager tool
+  const toolManagerTools = ['line']; // List of tools managed by toolManager
+  if (toolManager && toolManager.getActiveToolType() && !toolManagerTools.includes(tool)) {
+    // Get the active tool and manually deactivate it
+    const activeToolType = toolManager.getActiveToolType();
+    if (activeToolType) {
+      const activeTool = toolManager['tools'].get(activeToolType);
+      if (activeTool) {
+        activeTool.deactivate();
+      }
+    }
+  }
+
   switch (tool) {
     case 'pen':
       fabricCanvas.isDrawingMode = true;
@@ -1281,7 +1306,13 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
       setupRegionSelectTool();
       break;
     case 'line':
-      setupLineTool();
+      // NEW: Use refactored LineTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('line');
+      } else {
+        // Fallback to old implementation
+        setupLineTool();
+      }
       break;
     case 'arrow':
       setupArrowTool();
@@ -1308,7 +1339,16 @@ watch(() => toolbarStore.currentTool, (newTool) => {
 watch(() => toolbarStore.strokeWidth, (newWidth) => {
   if (!fabricCanvas || !fabricCanvas.freeDrawingBrush) return;
   fabricCanvas.freeDrawingBrush.width = newWidth;
-  
+
+  // Update toolManager config
+  if (toolManager) {
+    toolManager.updateConfig({
+      color: toolbarStore.color,
+      strokeWidth: newWidth,
+      fontSize: toolbarStore.fontSize
+    });
+  }
+
   // Update eraser cursor size
   if (toolbarStore.currentTool === 'eraser') {
     updateCanvasCursor();
@@ -1321,6 +1361,15 @@ watch(() => toolbarStore.color, (newColor) => {
   // Don't change color when eraser is active
   if (toolbarStore.currentTool !== 'eraser') {
     fabricCanvas.freeDrawingBrush.color = newColor;
+  }
+
+  // Update toolManager config
+  if (toolManager) {
+    toolManager.updateConfig({
+      color: newColor,
+      strokeWidth: toolbarStore.strokeWidth,
+      fontSize: toolbarStore.fontSize
+    });
   }
 });
 
@@ -1511,20 +1560,16 @@ function handleCanvasDelete(canvas: fabric.Canvas) {
 onMounted(() => {
   if (!canvasEl.value) return;
 
-  // Initialize Fabric.js canvas
-  fabricCanvas = new fabric.Canvas(canvasEl.value, {
+  // NEW: Initialize core whiteboard managers
+  registerEditableLine(); // Register EditableLine for deserialization
+  canvasManager = new CanvasManager(canvasEl.value, {
     width: window.innerWidth,
-    height: window.innerHeight - 56, // Subtract toolbar height
-    backgroundColor: '#ffffff',
-    isDrawingMode: false, // Will be set by applyToolState
-    targetFindTolerance: 10, // Increase click detection area (pixels)
-    perPixelTargetFind: true, // Enable precise pixel detection
-    uniformScaling: false, // Default to free resizing, Shift to preserve aspect ratio
-    // Custom cursors for object manipulation
-    hoverCursor: 'move', // Cursor when hovering over an object
-    moveCursor: 'move', // Cursor when moving an object
-    rotationCursor: 'url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAxMmEzIDMgMCAwIDAtMy0zSDdhM2EzYTAgMCAxIDAtMy0zIDkgOSAwIDEgMCAwIDE4IDkgOSAwIDAgMC05LTkiLz48cGF0aCBkPSJNMTEgNyAxNCA0bC0zLTMiLz48L3N2Zz4=) 12 12, auto', // Rotation cursor (refresh icon)
+    height: window.innerHeight - 56,
+    backgroundColor: '#ffffff'
   });
+
+  // Get the single canvas instance from the manager
+  fabricCanvas = canvasManager.getCanvas() as ExtendedFabricCanvas;
 
   // Store fabricCanvas reference on canvas element for main process access
   canvasEl.value.fabric = fabricCanvas as fabric.Canvas;
@@ -1568,6 +1613,23 @@ onMounted(() => {
     fabricCanvas.freeDrawingBrush.width = toolbarStore.strokeWidth;
   }
 
+  const toolConfig: ToolConfig = {
+    color: toolbarStore.color,
+    strokeWidth: toolbarStore.strokeWidth,
+    fontSize: toolbarStore.fontSize
+  };
+
+  toolManager = new ToolManager(fabricCanvas as fabric.Canvas, toolConfig);
+
+  // Register refactored tools
+  const lineTool = new LineTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot(),
+    () => toolbarStore.setTool('select') // Switch back to select mode after drawing
+  );
+  toolManager.registerTool('line', lineTool);
+
   // Apply initial tool state
   applyToolState(toolbarStore.currentTool);
   
@@ -1577,7 +1639,7 @@ onMounted(() => {
   // Register selection:cleared event to save snapshot on deselect
 fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
     if (isRestoringSnapshot) return; // Skip during undo/redo
-    if (isDrawing) return; // Skip while user is actively drawing a new shape
+    if (isDrawing || toolManager?.isDrawing()) return; // Skip while user is actively drawing a new shape
 
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
@@ -1736,12 +1798,11 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
 
   // Handle window resize
   const handleResize = () => {
-    if (!fabricCanvas) return;
-    fabricCanvas.setDimensions({
-      width: window.innerWidth,
-      height: window.innerHeight - 56, // Subtract toolbar height
-    });
-    fabricCanvas.renderAll();
+    if (!canvasManager) return;
+    canvasManager.resize(
+      window.innerWidth,
+      window.innerHeight - 56 // Subtract toolbar height
+    );
   };
 
   window.addEventListener('resize', handleResize);
