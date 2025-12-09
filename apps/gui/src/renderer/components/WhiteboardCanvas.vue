@@ -177,7 +177,28 @@ function setupLineTool() {
 
   cleanupShapeEvents();
 
-  mouseDownHandler = (e: fabric.IEvent) => {    isDrawing = true;
+  // Make all existing objects non-selectable when switching to drawing tool
+  fabricCanvas.getObjects().forEach(obj => {
+    obj.set({
+      selectable: false,
+      evented: false
+    });
+  });
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
+
+  mouseDownHandler = (e: fabric.IEvent) => {
+    // Clear any active selection and make it non-selectable before starting to draw
+    const activeObject = fabricCanvas!.getActiveObject();
+    if (activeObject) {
+      fabricCanvas!.discardActiveObject();
+      activeObject.set({
+        selectable: false,
+        evented: false
+      });
+    }
+
+    isDrawing = true;
     const pointer = e.pointer;
     if (!pointer) return;
     startX = pointer.x;
@@ -238,8 +259,6 @@ function setupLineTool() {
   mouseUpHandler = () => {
     if (!isDrawing) return;
 
-    isDrawing = false;
-
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
 
@@ -255,11 +274,7 @@ function setupLineTool() {
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
-      setTimeout(() => {
-        if (!isRestoringSnapshot) {
-          saveCanvasSnapshot();
-        }
-      }, 50);
+      saveCanvasSnapshot();
     }
     currentShape = null;
 
@@ -267,6 +282,8 @@ function setupLineTool() {
 
     // Switch back to select mode
     toolbarStore.setTool('select');
+
+    isDrawing = false;
   };
 
   fabricCanvas.on('mouse:down', mouseDownHandler);
@@ -320,7 +337,27 @@ function setupArrowTool() {
 
   cleanupShapeEvents();
 
+  // Make all existing objects non-selectable when switching to drawing tool
+  fabricCanvas.getObjects().forEach(obj => {
+    obj.set({
+      selectable: false,
+      evented: false
+    });
+  });
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
+
   mouseDownHandler = (e: fabric.IEvent) => {
+    // Clear any active selection and make it non-selectable before starting to draw
+    const activeObject = fabricCanvas!.getActiveObject();
+    if (activeObject) {
+      fabricCanvas!.discardActiveObject();
+      activeObject.set({
+        selectable: false,
+        evented: false
+      });
+    }
+
     isDrawing = true;
     const pointer = e.pointer;
     if (!pointer) return;
@@ -419,8 +456,6 @@ function setupArrowTool() {
   mouseUpHandler = () => {
     if (!isDrawing) return;
 
-    isDrawing = false;
-
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
 
@@ -486,6 +521,8 @@ function setupArrowTool() {
 
     // Switch back to select mode
     toolbarStore.setTool('select');
+
+    isDrawing = false;
   };
   
   fabricCanvas.on('mouse:down', mouseDownHandler);
@@ -498,10 +535,30 @@ function setupArrowTool() {
  */
 function setupRectangleTool() {
   if (!fabricCanvas) return;
-  
+
   cleanupShapeEvents();
+
+  // Make all existing objects non-selectable when switching to drawing tool
+  fabricCanvas.getObjects().forEach(obj => {
+    obj.set({
+      selectable: false,
+      evented: false
+    });
+  });
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
   
   mouseDownHandler = (e: fabric.IEvent) => {
+    // Clear any active selection and make it non-selectable before starting to draw
+    const activeObject = fabricCanvas!.getActiveObject();
+    if (activeObject) {
+      fabricCanvas!.discardActiveObject();
+      activeObject.set({
+        selectable: false,
+        evented: false
+      });
+    }
+
     isDrawing = true;
     const pointer = e.pointer;
     if (!pointer) return;
@@ -556,8 +613,6 @@ function setupRectangleTool() {
   mouseUpHandler = () => {
     if (!isDrawing) return;
     
-    isDrawing = false;
-    
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
     
@@ -577,11 +632,7 @@ function setupRectangleTool() {
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
-      setTimeout(() => {
-        if (!isRestoringSnapshot) {
-          saveCanvasSnapshot();
-        }
-      }, 50);
+      saveCanvasSnapshot();
     }
     currentShape = null;
 
@@ -589,6 +640,8 @@ function setupRectangleTool() {
 
     // Switch back to select mode
     toolbarStore.setTool('select');
+
+    isDrawing = false;
   };
 
   fabricCanvas.on('mouse:down', mouseDownHandler);
@@ -601,10 +654,30 @@ function setupRectangleTool() {
  */
 function setupCircleTool() {
   if (!fabricCanvas) return;
-  
+
   cleanupShapeEvents();
+
+  // Make all existing objects non-selectable when switching to drawing tool
+  fabricCanvas.getObjects().forEach(obj => {
+    obj.set({
+      selectable: false,
+      evented: false
+    });
+  });
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
   
   mouseDownHandler = (e: fabric.IEvent) => {
+    // Clear any active selection and make it non-selectable before starting to draw
+    const activeObject = fabricCanvas!.getActiveObject();
+    if (activeObject) {
+      fabricCanvas!.discardActiveObject();
+      activeObject.set({
+        selectable: false,
+        evented: false
+      });
+    }
+
     isDrawing = true;
     const pointer = e.pointer;
     if (!pointer) return;
@@ -664,8 +737,6 @@ function setupCircleTool() {
   mouseUpHandler = () => {
     if (!isDrawing) return;
     
-    isDrawing = false;
-    
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
     
@@ -685,11 +756,7 @@ function setupCircleTool() {
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
-      setTimeout(() => {
-        if (!isRestoringSnapshot) {
-          saveCanvasSnapshot();
-        }
-      }, 50);
+      saveCanvasSnapshot();
     }
     currentShape = null;
 
@@ -697,6 +764,8 @@ function setupCircleTool() {
 
     // Switch back to select mode
     toolbarStore.setTool('select');
+    
+    isDrawing = false;
   };
 
   fabricCanvas.on('mouse:down', mouseDownHandler);
@@ -1505,17 +1574,25 @@ onMounted(() => {
   // Set initial cursor
   updateCanvasCursor();
   
-  // Register selection:cleared event for flatten on deselect
+  // Register selection:cleared event to save snapshot on deselect
 fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
-    if (isRestoringSnapshot) return; // Skip flatten during undo/redo
-    if (isDrawing) return; // Skip flatten while user is actively drawing a new shape
+    if (isRestoringSnapshot) return; // Skip during undo/redo
+    if (isDrawing) return; // Skip while user is actively drawing a new shape
 
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
-      // Flatten entire canvas to background, then save snapshot in callback
-      flattenCanvasToBackground(() => {
-        saveCanvasSnapshot();
+      // Make deselected objects non-selectable to prevent interference
+      // This ensures only the last modified object remains interactive
+      deselected.forEach(obj => {
+        obj.set({
+          selectable: false,
+          evented: false
+        });
       });
+      fabricCanvas!.renderAll();
+
+      // Save snapshot on deselection
+      saveCanvasSnapshot();
     }
   });
 

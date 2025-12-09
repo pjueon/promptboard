@@ -180,26 +180,18 @@ test.describe('Keyboard Shortcuts', () => {
   test('Delete key should remove selected object', async () => {
     await drawRectangle(page);
     
-    let count = await getCanvasObjectCount(page);
+    const count = await getCanvasObjectCount(page);
     expect(count).toBe(1);
     
-    // Switch to select tool and click the object
-    await page.click('[data-testid="tool-btn-select"]');
-    await page.waitForTimeout(100);
-    
-    const canvas = await page.locator('canvas').first();
-    const box = await canvas.boundingBox();
-    if (box) {
-      await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
-      await page.waitForTimeout(200);
-    }
     
     // Press Delete
     await page.keyboard.press('Delete');
-    await page.waitForTimeout(300);
     
-    count = await getCanvasObjectCount(page);
-    expect(count).toBe(0);
+    // Wait for the object to be removed, polling for the condition
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(0);
+    }).toPass();
   });
 
   test('Escape should deselect objects', async () => {
@@ -251,7 +243,7 @@ test.describe('Keyboard Shortcuts', () => {
   test('Shortcuts should work in sequence', async () => {
     // Draw
     await drawRectangle(page);
-    let count = await getCanvasObjectCount(page);
+    const count = await getCanvasObjectCount(page);
     expect(count).toBeGreaterThanOrEqual(1);
     
     // Undo
@@ -265,23 +257,16 @@ test.describe('Keyboard Shortcuts', () => {
     await page.waitForTimeout(200);
     hasContent = await hasCanvasContent(page);
     expect(hasContent).toBe(true);
-    
-    // Select
-    await page.click('[data-testid="tool-btn-select"]');
-    await page.waitForTimeout(100);
-    
-    const canvas = await page.locator('canvas').first();
-    const box = await canvas.boundingBox();
-    if (box) {
-      await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.4);
-      await page.waitForTimeout(200);
-    }
+
     
     // Delete
     await page.keyboard.press('Delete');
-    await page.waitForTimeout(300);
-    count = await getCanvasObjectCount(page);
-    expect(count).toBe(0);
+
+    // Wait for the object to be removed, polling for the condition
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(0);
+    }).toPass();
   });
 
   test('Ctrl+V should work for paste operation', async () => {
