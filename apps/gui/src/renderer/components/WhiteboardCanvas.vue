@@ -238,8 +238,6 @@ function setupLineTool() {
   mouseUpHandler = () => {
     if (!isDrawing) return;
 
-    isDrawing = false;
-
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
 
@@ -255,11 +253,7 @@ function setupLineTool() {
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
-      setTimeout(() => {
-        if (!isRestoringSnapshot) {
-          saveCanvasSnapshot();
-        }
-      }, 50);
+      saveCanvasSnapshot();
     }
     currentShape = null;
 
@@ -267,6 +261,8 @@ function setupLineTool() {
 
     // Switch back to select mode
     toolbarStore.setTool('select');
+
+    isDrawing = false;
   };
 
   fabricCanvas.on('mouse:down', mouseDownHandler);
@@ -419,8 +415,6 @@ function setupArrowTool() {
   mouseUpHandler = () => {
     if (!isDrawing) return;
 
-    isDrawing = false;
-
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
 
@@ -486,6 +480,8 @@ function setupArrowTool() {
 
     // Switch back to select mode
     toolbarStore.setTool('select');
+
+    isDrawing = false;
   };
   
   fabricCanvas.on('mouse:down', mouseDownHandler);
@@ -556,8 +552,6 @@ function setupRectangleTool() {
   mouseUpHandler = () => {
     if (!isDrawing) return;
     
-    isDrawing = false;
-    
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
     
@@ -577,11 +571,7 @@ function setupRectangleTool() {
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
-      setTimeout(() => {
-        if (!isRestoringSnapshot) {
-          saveCanvasSnapshot();
-        }
-      }, 50);
+      saveCanvasSnapshot();
     }
     currentShape = null;
 
@@ -589,6 +579,8 @@ function setupRectangleTool() {
 
     // Switch back to select mode
     toolbarStore.setTool('select');
+
+    isDrawing = false;
   };
 
   fabricCanvas.on('mouse:down', mouseDownHandler);
@@ -664,8 +656,6 @@ function setupCircleTool() {
   mouseUpHandler = () => {
     if (!isDrawing) return;
     
-    isDrawing = false;
-    
     // Re-enable canvas selection
     fabricCanvas!.selection = true;
     
@@ -685,11 +675,7 @@ function setupCircleTool() {
       fabricCanvas!.setActiveObject(currentShape);
 
       // Save snapshot after object creation and selection
-      setTimeout(() => {
-        if (!isRestoringSnapshot) {
-          saveCanvasSnapshot();
-        }
-      }, 50);
+      saveCanvasSnapshot();
     }
     currentShape = null;
 
@@ -697,6 +683,8 @@ function setupCircleTool() {
 
     // Switch back to select mode
     toolbarStore.setTool('select');
+    
+    isDrawing = false;
   };
 
   fabricCanvas.on('mouse:down', mouseDownHandler);
@@ -1512,10 +1500,8 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
 
     const deselected = e.deselected;
     if (deselected && deselected.length > 0) {
-      // Flatten entire canvas to background, then save snapshot in callback
-      flattenCanvasToBackground(() => {
-        saveCanvasSnapshot();
-      });
+      // Save snapshot on deselection, without flattening
+      saveCanvasSnapshot();
     }
   });
 
