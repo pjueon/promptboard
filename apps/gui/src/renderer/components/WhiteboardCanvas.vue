@@ -21,6 +21,8 @@ import {
   CanvasManager,
   ToolManager,
   LineTool,
+  RectangleTool,
+  EllipseTool,
   registerEditableLine,
   type ToolConfig
 } from '@promptboard/core-whiteboard';
@@ -64,7 +66,6 @@ let toolManager: ToolManager | null = null;
 
 // Shape drawing state
 let isDrawing = false;
-let currentShape: fabric.Object | null = null;
 let startX = 0;
 let startY = 0;
 
@@ -179,128 +180,6 @@ function cleanupShapeEvents() {
     fabricCanvas.remove(selectionRect);
     selectionRect = null;
   }
-}
-
-/**
- * Setup line drawing
- */
-function setupLineTool() {
-  if (!fabricCanvas) return;
-
-  cleanupShapeEvents();
-
-  // Make all existing objects non-selectable when switching to drawing tool
-  fabricCanvas.getObjects().forEach(obj => {
-    obj.set({
-      selectable: false,
-      evented: false
-    });
-  });
-  fabricCanvas.discardActiveObject();
-  fabricCanvas.renderAll();
-
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Clear any active selection and make it non-selectable before starting to draw
-    const activeObject = fabricCanvas!.getActiveObject();
-    if (activeObject) {
-      fabricCanvas!.discardActiveObject();
-      activeObject.set({
-        selectable: false,
-        evented: false
-      });
-    }
-
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-
-    // Disable canvas selection during drawing
-    fabricCanvas!.selection = false;
-    
-    currentShape = new fabric.EditableLine([startX, startY, startX, startY], {
-      stroke: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      selectable: false,
-      evented: false,
-      perPixelTargetFind: true,
-      strokeUniform: true, // Maintain stroke width when scaling
-      originX: 'center',
-      originY: 'center',
-      type: 'editableLine',
-    });
-    
-    if (currentShape) {
-      fabricCanvas!.add(currentShape);
-    }
-  };
-  
-  mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !currentShape) return;
-    
-    const pointer = e.pointer;
-    if (!pointer) return;
-    let targetX = pointer.x;
-    let targetY = pointer.y;
-
-    // Snap to 45 degrees if Shift is pressed
-    if ((e.e as MouseEvent).shiftKey) {
-      const dx = targetX - startX;
-      const dy = targetY - startY;
-      
-      if (dx !== 0 || dy !== 0) {
-        const angle = Math.atan2(dy, dx);
-        const length = Math.sqrt(dx * dx + dy * dy);
-        
-        // Snap to 45 degrees (PI/4)
-        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
-        
-        targetX = startX + length * Math.cos(snapAngle);
-        targetY = startY + length * Math.sin(snapAngle);
-      }
-    }
-
-    (currentShape as fabric.Line).set({
-      x2: targetX,
-      y2: targetY,
-    });
-    
-    fabricCanvas!.renderAll();
-  };  
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-
-    // Re-enable canvas selection
-    fabricCanvas!.selection = true;
-
-    if (currentShape) {
-      currentShape.set({
-        selectable: true,
-        evented: true,
-      });
-      currentShape.setCoords(); // Update object coordinates
-
-      // Select the newly created shape
-      // fabric.js will automatically clear any previous selection
-      fabricCanvas!.setActiveObject(currentShape);
-
-      // Save snapshot after object creation and selection
-      saveCanvasSnapshot();
-    }
-    currentShape = null;
-
-    fabricCanvas!.renderAll(); // Re-render canvas
-
-    // Switch back to select mode
-    toolbarStore.setTool('select');
-
-    isDrawing = false;
-  };
-
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
 }
 
 /**
@@ -537,249 +416,6 @@ function setupArrowTool() {
     isDrawing = false;
   };
   
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
-}
-
-/**
- * Setup rectangle drawing
- */
-function setupRectangleTool() {
-  if (!fabricCanvas) return;
-
-  cleanupShapeEvents();
-
-  // Make all existing objects non-selectable when switching to drawing tool
-  fabricCanvas.getObjects().forEach(obj => {
-    obj.set({
-      selectable: false,
-      evented: false
-    });
-  });
-  fabricCanvas.discardActiveObject();
-  fabricCanvas.renderAll();
-  
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Clear any active selection and make it non-selectable before starting to draw
-    const activeObject = fabricCanvas!.getActiveObject();
-    if (activeObject) {
-      fabricCanvas!.discardActiveObject();
-      activeObject.set({
-        selectable: false,
-        evented: false
-      });
-    }
-
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-
-    // Disable canvas selection during drawing
-    fabricCanvas!.selection = false;
-
-    currentShape = new fabric.Rect({
-      left: startX,
-      top: startY,
-      width: 0,
-      height: 0,
-      stroke: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      fill: 'transparent', // Completely transparent fill
-      selectable: false,
-      evented: false,
-      hasBorders: false,
-      hasControls: false,
-    });
-    
-    fabricCanvas!.add(currentShape);
-  };
-  
-  mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !currentShape) return;
-    
-    const pointer = e.pointer;
-    if (!pointer) return;
-    let width = pointer.x - startX;
-    let height = pointer.y - startY;
-    
-    // Constrain to square if Shift is pressed
-    if ((e.e as MouseEvent).shiftKey) {
-      const size = Math.max(Math.abs(width), Math.abs(height));
-      width = width < 0 ? -size : size;
-      height = height < 0 ? -size : size;
-    }
-    
-    // Handle negative dimensions (dragging left or up)
-    (currentShape as fabric.Rect).set({
-      left: width < 0 ? startX + width : startX,
-      top: height < 0 ? startY + height : startY,
-      width: Math.abs(width),
-      height: Math.abs(height),
-    });
-    
-    fabricCanvas!.renderAll();
-  };  
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-    
-    // Re-enable canvas selection
-    fabricCanvas!.selection = true;
-    
-    if (currentShape) {
-      currentShape.set({
-        selectable: true,
-        evented: true,
-        hasBorders: true,
-        hasControls: true,
-        hoverCursor: 'move',
-        moveCursor: 'move',
-      });
-      currentShape.setCoords(); // Update object coordinates
-
-      // Select the newly created shape
-      // fabric.js will automatically clear any previous selection
-      fabricCanvas!.setActiveObject(currentShape);
-
-      // Save snapshot after object creation and selection
-      saveCanvasSnapshot();
-    }
-    currentShape = null;
-
-    fabricCanvas!.renderAll(); // Re-render canvas
-
-    // Switch back to select mode
-    toolbarStore.setTool('select');
-
-    isDrawing = false;
-  };
-
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
-}
-
-/**
- * Setup ellipse tool (formerly circle)
- */
-function setupCircleTool() {
-  if (!fabricCanvas) return;
-
-  cleanupShapeEvents();
-
-  // Make all existing objects non-selectable when switching to drawing tool
-  fabricCanvas.getObjects().forEach(obj => {
-    obj.set({
-      selectable: false,
-      evented: false
-    });
-  });
-  fabricCanvas.discardActiveObject();
-  fabricCanvas.renderAll();
-  
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Clear any active selection and make it non-selectable before starting to draw
-    const activeObject = fabricCanvas!.getActiveObject();
-    if (activeObject) {
-      fabricCanvas!.discardActiveObject();
-      activeObject.set({
-        selectable: false,
-        evented: false
-      });
-    }
-
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-
-    // Disable canvas selection during drawing
-    fabricCanvas!.selection = false;
-
-    currentShape = new fabric.Ellipse({
-      left: startX,
-      top: startY,
-      rx: 0,
-      ry: 0,
-      stroke: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      fill: 'transparent', // Completely transparent fill
-      selectable: false,
-      evented: false,
-      hasBorders: false,
-      hasControls: false,
-      originX: 'left',
-      originY: 'top',
-    });
-    
-    fabricCanvas!.add(currentShape);
-  };
-  
-  mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !currentShape) return;
-    
-    const pointer = e.pointer;
-    if (!pointer) return;
-    let width = pointer.x - startX;
-    let height = pointer.y - startY;
-    
-    // Shift key -> Circle (equal width/height)
-    if ((e.e as MouseEvent).shiftKey) {
-       const maxDim = Math.max(Math.abs(width), Math.abs(height));
-       width = width < 0 ? -maxDim : maxDim;
-       height = height < 0 ? -maxDim : maxDim;
-    }
-    
-    const rx = Math.abs(width) / 2;
-    const ry = Math.abs(height) / 2;
-
-    (currentShape as fabric.Ellipse).set({
-      left: width < 0 ? startX + width : startX,
-      top: height < 0 ? startY + height : startY,
-      rx: rx,
-      ry: ry,
-    });
-    
-    fabricCanvas!.renderAll();
-  };
-  
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-    
-    // Re-enable canvas selection
-    fabricCanvas!.selection = true;
-    
-    if (currentShape) {
-      currentShape.set({
-        selectable: true,
-        evented: true,
-        hasBorders: true,
-        hasControls: true,
-        hoverCursor: 'move',
-        moveCursor: 'move',
-      });
-      currentShape.setCoords(); // Update object coordinates
-
-      // Select the newly created shape
-      // fabric.js will automatically clear any previous selection
-      fabricCanvas!.setActiveObject(currentShape);
-
-      // Save snapshot after object creation and selection
-      saveCanvasSnapshot();
-    }
-    currentShape = null;
-
-    fabricCanvas!.renderAll(); // Re-render canvas
-
-    // Switch back to select mode
-    toolbarStore.setTool('select');
-    
-    isDrawing = false;
-  };
-
   fabricCanvas.on('mouse:down', mouseDownHandler);
   fabricCanvas.on('mouse:move', mouseMoveHandler);
   fabricCanvas.on('mouse:up', mouseUpHandler);
@@ -1283,7 +919,7 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
   }
 
   // Deactivate any active toolManager tool when switching to a non-toolManager tool
-  const toolManagerTools = ['line']; // List of tools managed by toolManager
+  const toolManagerTools = ['line', 'rectangle', 'ellipse']; // List of tools managed by toolManager
   if (toolManager && toolManager.getActiveToolType() && !toolManagerTools.includes(tool)) {
     // Get the active tool and manually deactivate it
     const activeToolType = toolManager.getActiveToolType();
@@ -1306,22 +942,25 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
       setupRegionSelectTool();
       break;
     case 'line':
-      // NEW: Use refactored LineTool from core-whiteboard
+      // Use refactored LineTool from core-whiteboard
       if (toolManager) {
         toolManager.activateTool('line');
-      } else {
-        // Fallback to old implementation
-        setupLineTool();
       }
       break;
     case 'arrow':
       setupArrowTool();
       break;
     case 'rectangle':
-      setupRectangleTool();
+      // Use refactored RectangleTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('rectangle');
+      }
       break;
     case 'ellipse':
-      setupCircleTool();
+      // Use refactored EllipseTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('ellipse');
+      }
       break;
     case 'text':
       setupTextTool();
@@ -1629,6 +1268,22 @@ onMounted(() => {
     () => toolbarStore.setTool('select') // Switch back to select mode after drawing
   );
   toolManager.registerTool('line', lineTool);
+
+  const rectangleTool = new RectangleTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot(),
+    () => toolbarStore.setTool('select')
+  );
+  toolManager.registerTool('rectangle', rectangleTool);
+
+  const ellipseTool = new EllipseTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot(),
+    () => toolbarStore.setTool('select')
+  );
+  toolManager.registerTool('ellipse', ellipseTool);
 
   // Apply initial tool state
   applyToolState(toolbarStore.currentTool);

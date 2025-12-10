@@ -12,11 +12,13 @@ export class EllipseTool extends ConstrainedShapeTool {
       top: y,
       rx: 0,
       ry: 0,
-      fill: this.config.color,
+      fill: 'transparent',
       stroke: this.config.color,
       strokeWidth: this.config.strokeWidth,
       selectable: false,
       evented: false,
+      originX: 'left',
+      originY: 'top',
     });
     return ellipse;
   }
@@ -28,18 +30,22 @@ export class EllipseTool extends ConstrainedShapeTool {
   ): void {
     if (!this.currentShape) return;
 
-    let rx = Math.abs(x - this.startX) / 2;
-    let ry = Math.abs(y - this.startY) / 2;
+    let width = x - this.startX;
+    let height = y - this.startY;
 
+    // Shift key -> Circle (equal width/height)
     if (isShiftPressed) {
-      const max = Math.max(rx, ry);
-      rx = max;
-      ry = max;
+      const maxDim = Math.max(Math.abs(width), Math.abs(height));
+      width = width < 0 ? -maxDim : maxDim;
+      height = height < 0 ? -maxDim : maxDim;
     }
 
+    const rx = Math.abs(width) / 2;
+    const ry = Math.abs(height) / 2;
+
     (this.currentShape as fabric.Ellipse).set({
-      left: this.startX + (x - this.startX) / 2,
-      top: this.startY + (y - this.startY) / 2,
+      left: width < 0 ? this.startX + width : this.startX,
+      top: height < 0 ? this.startY + height : this.startY,
       rx: rx,
       ry: ry,
     });

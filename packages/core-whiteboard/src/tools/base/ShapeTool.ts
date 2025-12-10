@@ -49,6 +49,18 @@ export abstract class ShapeTool extends Tool {
    * Activate the tool
    */
   activate(): void {
+    // Make all existing objects non-selectable when switching to drawing tool
+    this.canvas.getObjects().forEach(obj => {
+      obj.set({
+        selectable: false,
+        evented: false
+      });
+    });
+
+    // Discard any active selection
+    this.canvas.discardActiveObject();
+    this.canvas.renderAll();
+
     this.setupEventHandlers();
   }
 

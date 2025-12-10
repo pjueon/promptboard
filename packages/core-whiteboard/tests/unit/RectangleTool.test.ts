@@ -57,6 +57,8 @@ describe('RectangleTool', () => {
     expect(addedObject.get('top')).toBe(150);
     expect(addedObject.get('width')).toBe(150);
     expect(addedObject.get('height')).toBe(150);
+    expect(addedObject.get('fill')).toBe('transparent');
+    expect(addedObject.get('stroke')).toBe('red');
     expect(canvas.setActiveObject).toHaveBeenCalledWith(addedObject);
   });
 

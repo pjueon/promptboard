@@ -11,7 +11,10 @@ export { ToolManager } from './core/ToolManager';
 // Tools
 export { Tool } from './tools/base/Tool';
 export { ShapeTool } from './tools/base/ShapeTool';
+export { ConstrainedShapeTool } from './tools/base/ConstrainedShapeTool';
 export { LineTool } from './tools/LineTool';
+export { RectangleTool } from './tools/RectangleTool';
+export { EllipseTool } from './tools/EllipseTool';
 
 // Fabric objects
 export { EditableLine, registerEditableLine } from './fabric-objects/EditableLine';

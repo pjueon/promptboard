@@ -58,6 +58,9 @@ export abstract class ConstrainedShapeTool extends ShapeTool {
     this.startY = pointer.y;
     this._isDrawing = true;
 
+    // Disable canvas selection during drawing
+    this.canvas.selection = false;
+
     const isShiftPressed = (e.e as globalThis.MouseEvent).shiftKey;
     this.currentShape = this.createShape(
       this.startX,
@@ -84,6 +87,9 @@ export abstract class ConstrainedShapeTool extends ShapeTool {
 
   protected onMouseUp(e: MouseEvent): void {
     if (!this._isDrawing || !this.currentShape) return;
+
+    // Re-enable canvas selection
+    this.canvas.selection = true;
 
     // Finalize the shape
     this.finalizeShape(this.currentShape);

@@ -53,10 +53,14 @@ describe('EllipseTool', () => {
     expect(canvas.add).toHaveBeenCalled();
     const addedObject = (canvas.add as any).mock.calls[0][0];
     expect(addedObject).toBeInstanceOf(fabric.Ellipse);
-    expect(addedObject.get('left')).toBe(200);
-    expect(addedObject.get('top')).toBe(175);
+    expect(addedObject.get('left')).toBe(150);
+    expect(addedObject.get('top')).toBe(150);
     expect(addedObject.get('rx')).toBe(50);
     expect(addedObject.get('ry')).toBe(25);
+    expect(addedObject.get('fill')).toBe('transparent');
+    expect(addedObject.get('stroke')).toBe('blue');
+    expect(addedObject.get('originX')).toBe('left');
+    expect(addedObject.get('originY')).toBe('top');
     expect(canvas.setActiveObject).toHaveBeenCalledWith(addedObject);
   });
 
@@ -91,5 +95,8 @@ describe('EllipseTool', () => {
     const rx = addedObject.get('rx');
     const ry = addedObject.get('ry');
     expect(rx).toBe(ry);
+    expect(rx).toBe(100); // Max dimension is 200, so radius is 100
+    expect(addedObject.get('left')).toBe(100);
+    expect(addedObject.get('top')).toBe(100);
   });
 });
