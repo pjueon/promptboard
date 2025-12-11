@@ -25,6 +25,7 @@ import {
   RectangleTool,
   EllipseTool,
   TextTool,
+  PenTool,
   EraserTool,
   SelectTool,
   registerEditableLine,
@@ -558,8 +559,10 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
 
   switch (tool) {
     case 'pen':
-      fabricCanvas.isDrawingMode = true;
-      fabricCanvas.selection = false;
+      // Use refactored PenTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('pen');
+      }
       break;
     case 'eraser':
       // Use refactored EraserTool from core-whiteboard
@@ -932,6 +935,13 @@ onMounted(() => {
     // Note: No onComplete callback - user manually switches when done typing
   );
   toolManager.registerTool('text', textTool);
+
+  const penTool = new PenTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig
+    // Note: No callbacks - pen uses path:created event for snapshot saving
+  );
+  toolManager.registerTool('pen', penTool);
 
   const eraserTool = new EraserTool(
     fabricCanvas as fabric.Canvas,

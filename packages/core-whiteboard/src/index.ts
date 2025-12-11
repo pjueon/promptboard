@@ -17,6 +17,7 @@ export { ArrowTool } from './tools/ArrowTool';
 export { RectangleTool } from './tools/RectangleTool';
 export { EllipseTool } from './tools/EllipseTool';
 export { TextTool } from './tools/TextTool';
+export { PenTool } from './tools/PenTool';
 export { EraserTool } from './tools/EraserTool';
 export { SelectTool } from './tools/SelectTool';
 
