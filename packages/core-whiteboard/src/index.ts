@@ -16,6 +16,8 @@ export { LineTool } from './tools/LineTool';
 export { ArrowTool } from './tools/ArrowTool';
 export { RectangleTool } from './tools/RectangleTool';
 export { EllipseTool } from './tools/EllipseTool';
+export { TextTool } from './tools/TextTool';
+export { EraserTool } from './tools/EraserTool';
 
 // Fabric objects
 export { EditableLine, registerEditableLine } from './fabric-objects/EditableLine';

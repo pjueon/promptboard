@@ -24,6 +24,8 @@ import {
   ArrowTool,
   RectangleTool,
   EllipseTool,
+  TextTool,
+  EraserTool,
   registerEditableLine,
   type ToolConfig
 } from '@promptboard/core-whiteboard';
@@ -90,22 +92,6 @@ const autoSaveStore = useAutoSaveStore();
 // Auto-save cleanup function
 let cleanupAutoSave: (() => void) | null = null;
 
-// Computed eraser cursor with dynamic size
-const getEraserCursor = () => {
-  const size = Math.max(8, Math.min(toolbarStore.strokeWidth * 2, 48)); // Min 8px, Max 48px
-  const halfSize = size / 2;
-  const svgSize = size + 4; // Add border space
-  const halfSvgSize = svgSize / 2;
-  
-  // Create SVG with circle representing eraser size
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${svgSize}" height="${svgSize}" viewBox="0 0 ${svgSize} ${svgSize}">
-    <circle cx="${halfSvgSize}" cy="${halfSvgSize}" r="${halfSize}" fill="white" stroke="black" stroke-width="1" opacity="0.8"/>
-  </svg>`;
-  
-  const encodedSvg = encodeURIComponent(svg);
-  return `url('data:image/svg+xml;utf8,${encodedSvg}') ${halfSvgSize} ${halfSvgSize}, auto`;
-};
-
 // Update canvas cursor based on current tool
 function updateCanvasCursor() {
   if (!fabricCanvas) return;
@@ -127,8 +113,8 @@ function updateCanvasCursor() {
       cursor = 'text';
       break;
     case 'eraser':
-      cursor = getEraserCursor();
-      break;
+      // Eraser cursor is managed by EraserTool
+      return;
     case 'select':
       cursor = 'crosshair';
       break;
@@ -216,70 +202,6 @@ function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
     angle: arrowAngle + 90, // +90 because triangle points up by default
   });
   triangle.setCoords();
-}
-
-/**
- * Setup text tool
- */
-function setupTextTool() {
-  if (!fabricCanvas) return;
-  
-  cleanupShapeEvents();
-  
-  mouseDownHandler = (e: fabric.IEvent) => {
-    const pointer = e.pointer;
-    if (!pointer) return;
-    
-    const text = new fabric.IText('', {
-      left: pointer.x,
-      top: pointer.y,
-      fill: toolbarStore.color,
-      fontSize: toolbarStore.fontSize,
-    });
-    
-    fabricCanvas!.add(text);
-    fabricCanvas!.setActiveObject(text);
-    text.enterEditing();
-    text.setCoords(); // Update object coordinates
-    
-    // Save snapshot when text editing exits
-    text.on('editing:exited', () => {
-      // Save snapshot after text is finalized
-      setTimeout(() => {
-        saveCanvasSnapshot();
-      }, 100);
-    });
-    
-    fabricCanvas!.renderAll(); // Re-render canvas
-    
-    // Don't switch to select mode immediately - let user finish typing
-    // User can manually switch when done
-  };
-  
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-}
-
-/**
- * Setup eraser tool - white brush (like Paint)
- */
-function setupEraserTool() {
-  if (!fabricCanvas) return;
-  
-  cleanupShapeEvents();
-  
-  // Enable drawing mode with white color
-  fabricCanvas.isDrawingMode = true;
-  fabricCanvas.selection = false;
-  
-  // Set white color for eraser (like Paint)
-  if (fabricCanvas.freeDrawingBrush) {
-    fabricCanvas.freeDrawingBrush.color = '#ffffff';
-    fabricCanvas.freeDrawingBrush.width = toolbarStore.strokeWidth;
-  }
-  
-  // Set eraser cursor
-  const eraserCursor = getEraserCursor();
-  fabricCanvas.freeDrawingCursor = eraserCursor;
 }
 
 /**
@@ -716,7 +638,7 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
   }
 
   // Deactivate any active toolManager tool when switching to a non-toolManager tool
-  const toolManagerTools = ['line', 'rectangle', 'ellipse']; // List of tools managed by toolManager
+  const toolManagerTools = ['line', 'arrow', 'rectangle', 'ellipse', 'text', 'eraser']; // List of tools managed by toolManager
   if (toolManager && toolManager.getActiveToolType() && !toolManagerTools.includes(tool)) {
     // Get the active tool and manually deactivate it
     const activeToolType = toolManager.getActiveToolType();
@@ -731,9 +653,13 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
   switch (tool) {
     case 'pen':
       fabricCanvas.isDrawingMode = true;
+      fabricCanvas.selection = false;
       break;
     case 'eraser':
-      setupEraserTool();
+      // Use refactored EraserTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('eraser');
+      }
       break;
     case 'select':
       setupRegionSelectTool();
@@ -763,7 +689,10 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
       }
       break;
     case 'text':
-      setupTextTool();
+      // Use refactored TextTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('text');
+      }
       break;
   }
 }
@@ -779,18 +708,13 @@ watch(() => toolbarStore.strokeWidth, (newWidth) => {
   if (!fabricCanvas || !fabricCanvas.freeDrawingBrush) return;
   fabricCanvas.freeDrawingBrush.width = newWidth;
 
-  // Update toolManager config
+  // Update toolManager config (including EraserTool which updates cursor automatically)
   if (toolManager) {
     toolManager.updateConfig({
       color: toolbarStore.color,
       strokeWidth: newWidth,
       fontSize: toolbarStore.fontSize
     });
-  }
-
-  // Update eraser cursor size
-  if (toolbarStore.currentTool === 'eraser') {
-    updateCanvasCursor();
   }
 });
 
@@ -1092,6 +1016,21 @@ onMounted(() => {
     () => toolbarStore.setTool('select')
   );
   toolManager.registerTool('arrow', arrowTool);
+
+  const textTool = new TextTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot()
+    // Note: No onComplete callback - user manually switches when done typing
+  );
+  toolManager.registerTool('text', textTool);
+
+  const eraserTool = new EraserTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig
+    // Note: No callbacks - eraser uses path:created event for snapshot saving
+  );
+  toolManager.registerTool('eraser', eraserTool);
 
   // Apply initial tool state
   applyToolState(toolbarStore.currentTool);

@@ -40,16 +40,18 @@ export class ToolManager {
       throw new Error(`Tool not found: ${type}`);
     }
 
+    // Reset canvas state before activating tool
+    // This ensures a clean state for the tool to configure
+    this.canvas.isDrawingMode = false;
+    this.canvas.selection = true;
+
     // Update tool config before activating
     tool.updateConfig(this.config);
 
+    // Activate tool (tool can override canvas state as needed)
     tool.activate();
     this.activeTool = tool;
     this.activeToolType = type;
-
-    // Reset canvas state
-    this.canvas.isDrawingMode = false;
-    this.canvas.selection = true;
   }
 
   /**
