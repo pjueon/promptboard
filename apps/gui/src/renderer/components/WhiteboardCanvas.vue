@@ -21,6 +21,7 @@ import {
   CanvasManager,
   ToolManager,
   LineTool,
+  ArrowTool,
   RectangleTool,
   EllipseTool,
   registerEditableLine,
@@ -71,10 +72,6 @@ let startY = 0;
 
 // Flag to prevent saving snapshots during undo/redo
 let isRestoringSnapshot = false;
-
-// Arrow drawing state (for independent Line + Triangle approach)
-let currentArrowLine: fabric.Line | null = null;
-let currentArrowHead: fabric.Triangle | null = null;
 
 // Region selection state
 let selectionRect: fabric.Rect | null = null;
@@ -184,17 +181,18 @@ function cleanupShapeEvents() {
 
 /**
  * Update arrow head position and angle based on line coordinates
+ * Used when restoring canvas state from JSON
  */
 function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
   if (!line || !triangle) return;
 
-  // Use getPointByOrigin to get the actual transformed coordinates of the line endpoints
+  // Use calcLinePoints to get the actual transformed coordinates of the line endpoints
   // This properly handles all transformations including negative scaling
   const point1 = line.calcLinePoints();
-  
+
   // Get transformation matrix to transform local coordinates to canvas coordinates
   const transform = line.calcTransformMatrix();
-  
+
   // Transform the line endpoints using the transformation matrix
   const transformPoint = (x: number, y: number) => {
     return fabric.util.transformPoint(
@@ -202,7 +200,7 @@ function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
       transform
     );
   };
-  
+
   const start = transformPoint(point1.x1, point1.y1);
   const end = transformPoint(point1.x2, point1.y2);
 
@@ -218,207 +216,6 @@ function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
     angle: arrowAngle + 90, // +90 because triangle points up by default
   });
   triangle.setCoords();
-}
-
-/**
- * Setup arrow tool
- */
-function setupArrowTool() {
-  if (!fabricCanvas) return;
-
-  cleanupShapeEvents();
-
-  // Make all existing objects non-selectable when switching to drawing tool
-  fabricCanvas.getObjects().forEach(obj => {
-    obj.set({
-      selectable: false,
-      evented: false
-    });
-  });
-  fabricCanvas.discardActiveObject();
-  fabricCanvas.renderAll();
-
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Clear any active selection and make it non-selectable before starting to draw
-    const activeObject = fabricCanvas!.getActiveObject();
-    if (activeObject) {
-      fabricCanvas!.discardActiveObject();
-      activeObject.set({
-        selectable: false,
-        evented: false
-      });
-    }
-
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-
-    // Disable canvas selection during drawing
-    fabricCanvas!.selection = false;
-
-    // Create Line (the shaft of the arrow)
-    currentArrowLine = new fabric.EditableLine([startX, startY, startX, startY], {
-      stroke: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      selectable: false,
-      evented: false,
-      perPixelTargetFind: true,
-      strokeUniform: true,
-      originX: 'center',
-      originY: 'center',
-      type: 'editableLine',
-    });
-
-    // Calculate arrow head size based on stroke width
-    const headSize = Math.max(15, toolbarStore.strokeWidth * 3);
-
-    // Create Triangle (the arrow head)
-    currentArrowHead = new fabric.Triangle({
-      left: startX,
-      top: startY,
-      width: headSize,
-      height: headSize,
-      fill: toolbarStore.color,
-      selectable: false,
-      evented: false,
-      hasBorders: false,
-      hasControls: false,
-      originX: 'center',
-      originY: 'center',
-      angle: 0,
-    });
-
-    if (currentArrowLine && currentArrowHead) {
-      fabricCanvas!.add(currentArrowLine);
-      fabricCanvas!.add(currentArrowHead);
-    }
-  };
-
-  mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !currentArrowLine || !currentArrowHead) return;
-
-    const pointer = e.pointer;
-    if (!pointer) return;
-    let targetX = pointer.x;
-    let targetY = pointer.y;
-
-    // Snap to 45 degrees if Shift is pressed
-    if ((e.e as MouseEvent).shiftKey) {
-      const dx = targetX - startX;
-      const dy = targetY - startY;
-
-      if (dx !== 0 || dy !== 0) {
-        const angle = Math.atan2(dy, dx);
-        const length = Math.sqrt(dx * dx + dy * dy);
-
-        // Snap to 45 degrees (PI/4)
-        const snapAngle = Math.round(angle / (Math.PI / 4)) * (Math.PI / 4);
-
-        targetX = startX + length * Math.cos(snapAngle);
-        targetY = startY + length * Math.sin(snapAngle);
-      }
-    }
-
-    // Update line end point
-    currentArrowLine.set({
-      x2: targetX,
-      y2: targetY,
-    });
-    currentArrowLine.setCoords();
-
-    // Calculate arrow head position and angle
-    const dx = targetX - startX;
-    const dy = targetY - startY;
-    const angle = Math.atan2(dy, dx) * (180 / Math.PI); // Convert to degrees for Fabric.js
-
-    // Position triangle at the end of the line
-    currentArrowHead.set({
-      left: targetX,
-      top: targetY,
-      angle: angle + 90, // Rotate 90 degrees because Triangle points upward by default
-    });
-    currentArrowHead.setCoords();
-
-    fabricCanvas!.renderAll();
-  };
-
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-
-    // Re-enable canvas selection
-    fabricCanvas!.selection = true;
-
-    if (currentArrowLine && currentArrowHead) {
-      // Capture references in local scope for closure
-      const arrowLine = currentArrowLine;
-      const arrowHead = currentArrowHead;
-
-      // Generate unique ID for this arrow pair
-      const arrowId = `arrow_${Date.now()}_${Math.random()}`;
-
-      // Link line and triangle with custom data
-      // @ts-expect-error - adding custom property
-      arrowLine.arrowId = arrowId;
-      // @ts-expect-error - adding custom property
-      arrowLine.arrowHead = arrowHead;
-      // @ts-expect-error - adding custom property
-      arrowHead.arrowId = arrowId;
-      // @ts-expect-error - adding custom property
-      arrowHead.arrowLine = arrowLine;
-
-      // Make line selectable but keep triangle non-selectable
-      arrowLine.set({
-        selectable: true,
-        evented: true,
-      });
-
-      // Triangle should not be selectable (it follows the line)
-      arrowHead.set({
-        selectable: false,
-        evented: false,
-        hasBorders: false,
-        hasControls: false,
-      });
-
-      arrowLine.setCoords();
-      arrowHead.setCoords();
-
-      // Add event listeners to line for modifications
-      // Use closure variables to avoid null reference
-      const updateHandler = () => {
-        updateArrowHead(arrowLine, arrowHead);
-        fabricCanvas!.renderAll();
-      };
-
-      arrowLine.on('moving', updateHandler);
-      arrowLine.on('scaling', updateHandler);
-      arrowLine.on('rotating', updateHandler);
-      arrowLine.on('modified', updateHandler);
-
-      // Select the line
-      // fabric.js will automatically clear any previous selection
-      fabricCanvas!.setActiveObject(arrowLine);
-    }
-
-    currentArrowLine = null;
-    currentArrowHead = null;
-
-    fabricCanvas!.renderAll();
-    
-    // Save snapshot for undo/redo
-    saveCanvasSnapshot();
-
-    // Switch back to select mode
-    toolbarStore.setTool('select');
-
-    isDrawing = false;
-  };
-  
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
 }
 
 /**
@@ -948,7 +745,10 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
       }
       break;
     case 'arrow':
-      setupArrowTool();
+      // Use refactored ArrowTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('arrow');
+      }
       break;
     case 'rectangle':
       // Use refactored RectangleTool from core-whiteboard
@@ -1284,6 +1084,14 @@ onMounted(() => {
     () => toolbarStore.setTool('select')
   );
   toolManager.registerTool('ellipse', ellipseTool);
+
+  const arrowTool = new ArrowTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig,
+    () => saveCanvasSnapshot(),
+    () => toolbarStore.setTool('select')
+  );
+  toolManager.registerTool('arrow', arrowTool);
 
   // Apply initial tool state
   applyToolState(toolbarStore.currentTool);
