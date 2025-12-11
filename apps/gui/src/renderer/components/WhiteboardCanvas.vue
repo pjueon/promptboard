@@ -26,6 +26,7 @@ import {
   EllipseTool,
   TextTool,
   EraserTool,
+  SelectTool,
   registerEditableLine,
   type ToolConfig
 } from '@promptboard/core-whiteboard';
@@ -66,17 +67,13 @@ let fabricCanvas: ExtendedFabricCanvas | null = null;
 // NEW: Core whiteboard managers (for refactored tools)
 let canvasManager: CanvasManager | null = null;
 let toolManager: ToolManager | null = null;
+let selectTool: SelectTool | null = null; // Keep reference for copySelectedRegion
 
 // Shape drawing state
 let isDrawing = false;
-let startX = 0;
-let startY = 0;
 
 // Flag to prevent saving snapshots during undo/redo
 let isRestoringSnapshot = false;
-
-// Region selection state
-let selectionRect: fabric.Rect | null = null;
 
 // Mouse event handlers for shape drawing
 let mouseDownHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
@@ -116,8 +113,16 @@ function updateCanvasCursor() {
       // Eraser cursor is managed by EraserTool
       return;
     case 'select':
-      cursor = 'crosshair';
-      break;
+      cursor = 'default';
+      // Set move cursor when hovering over objects
+      fabricCanvas.defaultCursor = cursor;
+      fabricCanvas.hoverCursor = 'move';
+
+      // Immediately update the actual DOM cursor style
+      if (fabricCanvas.upperCanvasEl) {
+        fabricCanvas.upperCanvasEl.style.cursor = cursor;
+      }
+      return;
     default:
       cursor = 'default';
       break;
@@ -156,12 +161,6 @@ function cleanupShapeEvents() {
   if (mouseUpHandler) {
     fabricCanvas.off('mouse:up', mouseUpHandler);
     mouseUpHandler = null;
-  }
-  
-  // Remove selection rectangle when switching tools
-  if (selectionRect) {
-    fabricCanvas.remove(selectionRect);
-    selectionRect = null;
   }
 }
 
@@ -205,102 +204,10 @@ function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
 }
 
 /**
- * Setup region selection tool - Paint-style area selection
- */
-function setupRegionSelectTool() {
-  if (!fabricCanvas) return;
-  
-  cleanupShapeEvents();
-  
-  // Remove any existing selection rectangle
-  if (selectionRect) {
-    fabricCanvas.remove(selectionRect);
-    selectionRect = null;
-  }
-  
-  // Enable object selection initially
-  fabricCanvas.selection = true;
-  
-  mouseDownHandler = (e: fabric.IEvent) => {
-    // Check if clicking on an existing object
-    const target = e.target;
-    if (target) {
-      // Clicked on an object, allow normal selection
-      return;
-    }
-    
-    // Clicked on empty space, start region selection
-    isDrawing = true;
-    const pointer = e.pointer;
-    if (!pointer) return;
-    startX = pointer.x;
-    startY = pointer.y;
-    
-    // Remove previous selection if exists
-    if (selectionRect) {
-      fabricCanvas!.remove(selectionRect);
-      selectionRect = null;
-    }
-    
-    // Disable object selection during region drawing
-    fabricCanvas!.selection = false;
-    fabricCanvas!.discardActiveObject();
-    
-    // Create selection rectangle with dashed border
-    selectionRect = new fabric.Rect({
-      left: startX,
-      top: startY,
-      width: 0,
-      height: 0,
-      fill: 'rgba(0, 0, 0, 0)', // Transparent fill
-      stroke: '#000000',
-      strokeWidth: 1,
-      strokeDashArray: [5, 5], // Dashed line
-      selectable: false,
-      evented: false,
-    });
-    
-    fabricCanvas!.add(selectionRect);
-  };
-  
-mouseMoveHandler = (e: fabric.IEvent) => {
-    if (!isDrawing || !selectionRect) return;
-    
-    const pointer = e.pointer;
-    if (!pointer) return;
-    const width = pointer.x - startX;
-    const height = pointer.y - startY;
-    
-    // Handle negative dimensions (dragging left or up)
-    selectionRect.set({
-      left: width < 0 ? pointer.x : startX,
-      top: height < 0 ? pointer.y : startY,
-      width: Math.abs(width),
-      height: Math.abs(height),
-    });
-    
-    fabricCanvas!.renderAll();
-  };
-  
-  mouseUpHandler = () => {
-    if (!isDrawing) return;
-    isDrawing = false;
-    
-    // Re-enable object selection after region drawing
-    fabricCanvas!.selection = true;
-    
-    // Keep selection rectangle on canvas for deletion
-  };
-  
-  fabricCanvas.on('mouse:down', mouseDownHandler);
-  fabricCanvas.on('mouse:move', mouseMoveHandler);
-  fabricCanvas.on('mouse:up', mouseUpHandler);
-}
-
-/**
  * Copy the currently selected region to clipboard
  */
 function copySelectedRegion() {
+  const selectionRect = selectTool?.getSelectionRect();
   if (!selectionRect || !fabricCanvas) return;
   
   const rect = selectionRect;
@@ -379,8 +286,9 @@ function copySelectedRegion() {
  * Delete the currently selected region
  */
 function deleteSelectedRegion() {
+  const selectionRect = selectTool?.getSelectionRect();
   if (!selectionRect || !fabricCanvas) return;
-  
+
   const rect = selectionRect;
   const left = rect.left!;
   const top = rect.top!;
@@ -390,8 +298,7 @@ function deleteSelectedRegion() {
   // Skip if selection is too small (less than 1x1 pixel)
   if (width < 1 || height < 1) {
     // Just remove the selection rectangle
-    fabricCanvas.remove(selectionRect);
-    selectionRect = null;
+    selectTool?.removeSelectionRect();
     fabricCanvas.renderAll();
     return;
   }
@@ -408,9 +315,8 @@ function deleteSelectedRegion() {
   });
   
   // Remove selection rectangle first
-  fabricCanvas.remove(selectionRect);
-  selectionRect = null;
-  
+  selectTool?.removeSelectionRect();
+
   // Add white rectangle
   fabricCanvas.add(whiteRect);
   fabricCanvas.renderAll();
@@ -638,7 +544,7 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
   }
 
   // Deactivate any active toolManager tool when switching to a non-toolManager tool
-  const toolManagerTools = ['line', 'arrow', 'rectangle', 'ellipse', 'text', 'eraser']; // List of tools managed by toolManager
+  const toolManagerTools = ['line', 'arrow', 'rectangle', 'ellipse', 'text', 'eraser', 'select']; // List of tools managed by toolManager
   if (toolManager && toolManager.getActiveToolType() && !toolManagerTools.includes(tool)) {
     // Get the active tool and manually deactivate it
     const activeToolType = toolManager.getActiveToolType();
@@ -662,7 +568,10 @@ function applyToolState(tool: typeof toolbarStore.currentTool) {
       }
       break;
     case 'select':
-      setupRegionSelectTool();
+      // Use refactored SelectTool from core-whiteboard
+      if (toolManager) {
+        toolManager.activateTool('select');
+      }
       break;
     case 'line':
       // Use refactored LineTool from core-whiteboard
@@ -747,9 +656,8 @@ function addImageToCanvas(blob: Blob, position?: { x: number; y: number }, sourc
   if (!fabricCanvas) return;
 
   // Remove selection rectangle if exists
-  if (selectionRect) {
-    fabricCanvas.remove(selectionRect);
-    selectionRect = null;
+  if (selectTool?.getSelectionRect()) {
+    selectTool?.removeSelectionRect();
     fabricCanvas.renderAll();
   }
 
@@ -1032,6 +940,13 @@ onMounted(() => {
   );
   toolManager.registerTool('eraser', eraserTool);
 
+  selectTool = new SelectTool(
+    fabricCanvas as fabric.Canvas,
+    toolConfig
+    // Note: No callbacks - select tool doesn't auto-complete or save snapshots
+  );
+  toolManager.registerTool('select', selectTool);
+
   // Apply initial tool state
   applyToolState(toolbarStore.currentTool);
   
@@ -1129,9 +1044,8 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     // ESC - Cancel selection / Deselect
     if (e.key === 'Escape') {
       // Remove selection rectangle if exists
-      if (selectionRect) {
-        fabricCanvas.remove(selectionRect);
-        selectionRect = null;
+      if (selectTool?.getSelectionRect()) {
+        selectTool?.removeSelectionRect();
         fabricCanvas.renderAll();
         return;
       }
@@ -1148,7 +1062,7 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     // Ctrl+C - Copy selected region
     if (e.ctrlKey && e.key === 'c') {
       // Check if region is selected (select tool with selection rectangle)
-      if (toolbarStore.currentTool === 'select' && selectionRect) {
+      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
         e.preventDefault();
         copySelectedRegion();
         return;
@@ -1158,7 +1072,7 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     // Delete key
     if (e.key === 'Delete') {
       // Check if region is selected (select tool with selection rectangle)
-      if (toolbarStore.currentTool === 'select' && selectionRect) {
+      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
         deleteSelectedRegion();
         return;
       }
