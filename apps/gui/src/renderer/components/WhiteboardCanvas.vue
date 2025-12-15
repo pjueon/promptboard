@@ -12,14 +12,15 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import { fabric } from 'fabric';
 import '../fabric-ext/EditableLine';
 import { useToolbarStore } from '../stores/toolbarStore';
-import { useHistoryStore } from '../stores/historyStore';
 import { useToastStore } from '../stores/toastStore';
 import { useAutoSaveStore } from '../stores/autoSaveStore';
+import { debounce } from '../utils/debounce';
 import type { CanvasState } from '../types/canvas';
 // NEW: Import from core-whiteboard package
 import {
   CanvasManager,
   ToolManager,
+  HistoryManager,
   LineTool,
   ArrowTool,
   RectangleTool,
@@ -68,13 +69,15 @@ let fabricCanvas: ExtendedFabricCanvas | null = null;
 // NEW: Core whiteboard managers (for refactored tools)
 let canvasManager: CanvasManager | null = null;
 let toolManager: ToolManager | null = null;
+let historyManager: HistoryManager | null = null;
 let selectTool: SelectTool | null = null; // Keep reference for copySelectedRegion
+
+// Reactive state for undo/redo buttons
+const canUndoRef = ref(false);
+const canRedoRef = ref(false);
 
 // Shape drawing state
 let isDrawing = false;
-
-// Flag to prevent saving snapshots during undo/redo
-let isRestoringSnapshot = false;
 
 // Mouse event handlers for shape drawing
 let mouseDownHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
@@ -83,12 +86,12 @@ let mouseUpHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
 
 // Get stores
 const toolbarStore = useToolbarStore();
-const historyStore = useHistoryStore();
 const toastStore = useToastStore();
 const autoSaveStore = useAutoSaveStore();
 
 // Auto-save cleanup function
 let cleanupAutoSave: (() => void) | null = null;
+let debouncedAutoSave: ReturnType<typeof debounce> | null = null;
 
 // Update canvas cursor based on current tool
 function updateCanvasCursor() {
@@ -335,43 +338,25 @@ function deleteSelectedRegion() {
  * Save canvas snapshot to history
  */
 function saveCanvasSnapshot() {
-  if (!fabricCanvas || isRestoringSnapshot) return;
+  if (!historyManager) return;
 
-  // Include custom properties for arrows
-  const canvasState = fabricCanvas.toJSON(['arrowId', 'selectable', 'evented']);
+  // Don't save during restoration (HistoryManager handles this check)
+  if (historyManager.isRestoringSnapshot()) {
+    return;
+  }
 
-  historyStore.saveSnapshot(canvasState);
+  historyManager.saveSnapshot();
 }
 
 /**
- * Restore canvas from snapshot
+ * Reconnect arrow objects after canvas restoration
+ * This is needed because arrow lines and heads need to be linked together
  */
-function restoreSnapshot(canvasState: CanvasState) {
+function reconnectArrows() {
   if (!fabricCanvas) return;
 
-  isRestoringSnapshot = true;
-
-  // Clear selection before clearing canvas
-  fabricCanvas.discardActiveObject();
-
-  // Clear canvas completely first to prevent background accumulation
-  fabricCanvas.clear();
-
-  // Force clear internal selection state
-  fabricCanvas._activeObject = null;
-  fabricCanvas._hoveredTarget = null;
-
-  fabricCanvas.backgroundColor = '#ffffff';
-  fabricCanvas.backgroundImage = null;
-
-  fabricCanvas.loadFromJSON(canvasState, () => {
-    // Ensure white background if no background image
-    if (!fabricCanvas!.backgroundImage) {
-      fabricCanvas!.backgroundColor = '#ffffff';
-    }
-
-    // Reconnect arrow objects and restore event handlers
-    const objects = fabricCanvas!.getObjects();
+  // Reconnect arrow objects and restore event handlers
+  const objects = fabricCanvas.getObjects();
     const arrowMap = new Map<string, { line?: fabric.Line; head?: fabric.Triangle }>();
 
     // First pass: collect arrow objects by arrowId
@@ -411,55 +396,78 @@ function restoreSnapshot(canvasState: CanvasState) {
       }
     });
 
-    // Auto-select restored objects if any
+  // Auto-select restored objects if any (restore selection state)
+  if (objects && objects.length > 0) {
+    // Select the last object (most recently added/modified)
+    let lastObject = objects[objects.length - 1];
 
-    if (objects && objects.length > 0) {
-      // Select the last object (most recently added)
-      let lastObject = objects[objects.length - 1];
-
-      // If the last object is not selectable (e.g., arrow head triangle)
-      // try to find its associated selectable object (e.g., arrow line)
-      if (lastObject.selectable === false) {
-        // Check if it's part of an arrow (has arrowLine reference)
-        const arrowLine = (lastObject as fabric.Object & { arrowLine?: fabric.Object }).arrowLine;
-        if (arrowLine && arrowLine.selectable) {
-          lastObject = arrowLine;
-        } else {
-          // Find the last selectable object
-          for (let i = objects.length - 1; i >= 0; i--) {
-            if (objects[i].selectable !== false) {
-              lastObject = objects[i];
-              break;
-            }
+    // If the last object is not selectable (e.g., arrow head triangle)
+    // try to find its associated selectable object (e.g., arrow line)
+    if (lastObject.selectable === false) {
+      // Check if it's part of an arrow (has arrowLine reference)
+      const arrowLine = (lastObject as fabric.Object & { arrowLine?: fabric.Object }).arrowLine;
+      if (arrowLine && arrowLine.selectable) {
+        lastObject = arrowLine;
+      } else {
+        // Find the last selectable object
+        for (let i = objects.length - 1; i >= 0; i--) {
+          if (objects[i].selectable !== false) {
+            lastObject = objects[i];
+            break;
           }
         }
       }
-
-      // Only select if the object is selectable
-      if (lastObject.selectable !== false) {
-        fabricCanvas!.setActiveObject(lastObject);
-      }
-    } else {
-      // Clear selection when no objects (prevents ghost bounding box)
-      fabricCanvas!.discardActiveObject();
     }
 
-    fabricCanvas!.renderAll();
-
-    // Extra clear to ensure no ghost selection
-    if (objects.length === 0) {
-      setTimeout(() => {
-        fabricCanvas!.discardActiveObject();
-        fabricCanvas!._activeObject = null;
-        fabricCanvas!._hoveredTarget = null;
-        fabricCanvas!.requestRenderAll();
-      }, 50);
+    // Only select if the object is selectable
+    if (lastObject.selectable !== false) {
+      fabricCanvas.setActiveObject(lastObject);
     }
+  } else {
+    // Clear selection when no objects (prevents ghost bounding box)
+    fabricCanvas.discardActiveObject();
+  }
 
-    // Reset flag after a small delay to ensure all events have finished
+  fabricCanvas.renderAll();
+
+  // Extra clear to ensure no ghost selection
+  if (objects.length === 0) {
     setTimeout(() => {
-      isRestoringSnapshot = false;
-    }, 100);
+      fabricCanvas!.discardActiveObject();
+      fabricCanvas!._activeObject = null;
+      fabricCanvas!._hoveredTarget = null;
+      fabricCanvas!.requestRenderAll();
+    }, 50);
+  }
+}
+
+/**
+ * Restore canvas from snapshot (legacy - kept for manual restoration)
+ */
+function restoreSnapshot(canvasState: CanvasState) {
+  if (!fabricCanvas) return;
+
+  // Clear selection before clearing canvas
+  fabricCanvas.discardActiveObject();
+
+  // Clear canvas completely first to prevent background accumulation
+  fabricCanvas.clear();
+
+  // Force clear internal selection state
+  fabricCanvas._activeObject = null;
+  fabricCanvas._hoveredTarget = null;
+
+  fabricCanvas.backgroundColor = '#ffffff';
+  fabricCanvas.backgroundImage = null;
+
+  fabricCanvas.loadFromJSON(canvasState, () => {
+    // Ensure white background if no background image
+    if (!fabricCanvas!.backgroundImage) {
+      fabricCanvas!.backgroundColor = '#ffffff';
+    }
+
+    // Reconnect arrows after restoration
+    reconnectArrows();
   });
 }
 /**
@@ -907,6 +915,27 @@ onMounted(() => {
 
   toolManager = new ToolManager(fabricCanvas as fabric.Canvas, toolConfig);
 
+  // Initialize HistoryManager
+  historyManager = new HistoryManager(canvasManager, {
+    maxHistory: 50,
+    propertiesToInclude: ['arrowId', 'selectable', 'evented']
+  });
+
+  // Setup event listeners for UI state updates
+  historyManager.on('change', (event) => {
+    canUndoRef.value = event.canUndo;
+    canRedoRef.value = event.canRedo;
+  });
+
+  // Reconnect arrows after undo/redo
+  // Events are emitted after loadFromJSON callback completes
+  historyManager.on('undo', () => {
+    reconnectArrows();
+  });
+  historyManager.on('redo', () => {
+    reconnectArrows();
+  });
+
   // Register refactored tools
   const lineTool = new LineTool(
     fabricCanvas as fabric.Canvas,
@@ -977,7 +1006,7 @@ onMounted(() => {
   
   // Register selection:cleared event to save snapshot on deselect
 fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
-    if (isRestoringSnapshot) return; // Skip during undo/redo
+    if (historyManager?.isRestoringSnapshot()) return; // Skip during undo/redo
     if (isDrawing || toolManager?.isDrawing()) return; // Skip while user is actively drawing a new shape
 
     const deselected = e.deselected;
@@ -999,7 +1028,7 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
 
   // Register object:modified event for saving snapshots on resize/rotate/move
   fabricCanvas.on('object:modified', () => {
-    if (!isRestoringSnapshot) {
+    if (!historyManager?.isRestoringSnapshot()) {
       // Delay snapshot to ensure canvas is fully rendered
       setTimeout(() => {
         saveCanvasSnapshot();
@@ -1114,9 +1143,9 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     // Ctrl+Z - Undo
     if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
       e.preventDefault();
-      const snapshot = historyStore.undo();
-      if (snapshot) {
-        restoreSnapshot(snapshot);
+      if (historyManager) {
+        historyManager.undo();
+        // HistoryManager automatically restores the snapshot
       }
     }
 
@@ -1124,9 +1153,9 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
     if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') ||
         (e.ctrlKey && e.key === 'y')) {
       e.preventDefault();
-      const snapshot = historyStore.redo();
-      if (snapshot) {
-        restoreSnapshot(snapshot);
+      if (historyManager) {
+        historyManager.redo();
+        // HistoryManager automatically restores the snapshot
       }
     }
   };
@@ -1219,13 +1248,31 @@ function getCanvasImage(format: 'png' | 'jpeg' = 'png'): string | null {
  * Setup event-driven auto-save
  */
 function setupAutoSave() {
-  if (!fabricCanvas || !autoSaveStore.isEnabled) return;
+  if (!historyManager || !canvasManager || !autoSaveStore.isEnabled) return;
 
-  // Setup history watcher for auto-save
-  cleanupAutoSave = autoSaveStore.setupHistoryWatcher(
-    historyStore,
-    () => fabricCanvas!.toJSON()
-  );
+  // Create debounced save function
+  debouncedAutoSave = debounce(async () => {
+    if (autoSaveStore.isEnabled && canvasManager) {
+      const canvasData = canvasManager.toJSON(['arrowId', 'selectable', 'evented']);
+      await autoSaveStore.saveWhiteboardState(canvasData);
+    }
+  }, autoSaveStore.debounceMs);
+
+  // Subscribe to history changes for auto-save
+  const unsubscribe = historyManager.on('snapshot', () => {
+    if (autoSaveStore.isEnabled && debouncedAutoSave) {
+      debouncedAutoSave();
+    }
+  });
+
+  // Setup cleanup function
+  cleanupAutoSave = () => {
+    if (debouncedAutoSave) {
+      debouncedAutoSave.cancel();
+      debouncedAutoSave = null;
+    }
+    unsubscribe();
+  };
 }
 
 /**
@@ -1239,10 +1286,8 @@ async function loadCanvasState() {
     if (state && state.canvasData) {
       // Wait for loadFromJSON to complete before resolving
       return new Promise<void>((resolve) => {
-        fabricCanvas!.loadFromJSON(state.canvasData, () => {
-          fabricCanvas!.renderAll();
-          resolve();
-        });
+        restoreSnapshot(state.canvasData);
+        resolve();
       });
     }
   } catch (error) {
@@ -1262,10 +1307,12 @@ watch(() => autoSaveStore.isEnabled, (enabled) => {
   }
 });
 
-// Expose methods to parent
+// Expose methods and state to parent
 defineExpose({
   clearCanvas,
   getCanvasImage,
+  canUndoRef,
+  canRedoRef,
 });
 
 onBeforeUnmount(() => {
@@ -1276,9 +1323,15 @@ onBeforeUnmount(() => {
   }
 
   // Perform final immediate auto-save
-  if (autoSaveStore.isEnabled && fabricCanvas) {
-    const canvasData = fabricCanvas.toJSON();
+  if (autoSaveStore.isEnabled && canvasManager) {
+    const canvasData = canvasManager.toJSON(['arrowId', 'selectable', 'evented']);
     autoSaveStore.performAutoSaveImmediately(canvasData);
+  }
+
+  // Dispose HistoryManager
+  if (historyManager) {
+    historyManager.dispose();
+    historyManager = null;
   }
 
   if (fabricCanvas) {

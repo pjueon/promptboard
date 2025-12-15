@@ -7,6 +7,8 @@
 export { CanvasManager } from './core/CanvasManager';
 export type { CanvasManagerConfig } from './core/CanvasManager';
 export { ToolManager } from './core/ToolManager';
+export { HistoryManager } from './core/HistoryManager';
+export type { HistoryManagerConfig, HistoryEvent, HistoryEventType } from './core/HistoryManager';
 
 // Tools
 export { Tool } from './tools/base/Tool';
