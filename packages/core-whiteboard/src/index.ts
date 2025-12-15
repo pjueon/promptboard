@@ -9,6 +9,8 @@ export type { CanvasManagerConfig } from './core/CanvasManager';
 export { ToolManager } from './core/ToolManager';
 export { HistoryManager } from './core/HistoryManager';
 export type { HistoryManagerConfig, HistoryEvent, HistoryEventType } from './core/HistoryManager';
+export { StateManager } from './core/StateManager';
+export type { StateManagerConfig, StorageAdapter } from './core/StateManager';
 
 // Tools
 export { Tool } from './tools/base/Tool';
