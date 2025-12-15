@@ -16,7 +16,7 @@ import { useToastStore } from '../stores/toastStore';
 import { useAutoSaveStore } from '../stores/autoSaveStore';
 import { debounce } from '../utils/debounce';
 import type { CanvasState } from '../types/canvas';
-// NEW: Import from core-whiteboard package
+// Import from core-whiteboard package
 import {
   CanvasManager,
   ToolManager,
@@ -29,7 +29,11 @@ import {
   PenTool,
   EraserTool,
   SelectTool,
+  KeyboardHandler, 
+  ClipboardHandler,
+  DragDropHandler, 
   registerEditableLine,
+  registerArrowObject,
   type ToolConfig
 } from '@promptboard/core-whiteboard';
 
@@ -40,10 +44,6 @@ interface FabricCanvasElement extends HTMLCanvasElement {
 // Extended Fabric.js types for custom properties
 interface ExtendedFabricCanvas extends Omit<fabric.Canvas, '_activeObject' | 'backgroundColor' | 'backgroundImage'> {
   _resizeHandler?: () => void;
-  _pasteHandler?: (e: ClipboardEvent) => void;
-  _keydownHandler?: (e: KeyboardEvent) => void;
-  _dragoverHandler?: (e: DragEvent) => void;
-  _dropHandler?: (e: DragEvent) => void;
   _activeObject?: fabric.Object | null | undefined;
   _hoveredTarget?: fabric.Object | null;
   upperCanvasEl?: HTMLCanvasElement;
@@ -66,15 +66,22 @@ const canvasEl = ref<FabricCanvasElement | null>(null);
 // Fabric.js canvas instance
 let fabricCanvas: ExtendedFabricCanvas | null = null;
 
-// NEW: Core whiteboard managers (for refactored tools)
+// Core whiteboard managers
 let canvasManager: CanvasManager | null = null;
 let toolManager: ToolManager | null = null;
 let historyManager: HistoryManager | null = null;
 let selectTool: SelectTool | null = null; // Keep reference for copySelectedRegion
 
+// Handlers
+let keyboardHandler: KeyboardHandler | null = null;
+let clipboardHandler: ClipboardHandler | null = null;
+let dragDropHandler: DragDropHandler | null = null;
+
 // Reactive state for undo/redo buttons
 const canUndoRef = ref(false);
 const canRedoRef = ref(false);
+// Loading state to prevent race conditions during testing
+const isCanvasLoading = ref(true);
 
 // Shape drawing state
 let isDrawing = false;
@@ -166,45 +173,6 @@ function cleanupShapeEvents() {
     fabricCanvas.off('mouse:up', mouseUpHandler);
     mouseUpHandler = null;
   }
-}
-
-/**
- * Update arrow head position and angle based on line coordinates
- * Used when restoring canvas state from JSON
- */
-function updateArrowHead(line: fabric.Line, triangle: fabric.Triangle) {
-  if (!line || !triangle) return;
-
-  // Use calcLinePoints to get the actual transformed coordinates of the line endpoints
-  // This properly handles all transformations including negative scaling
-  const point1 = line.calcLinePoints();
-
-  // Get transformation matrix to transform local coordinates to canvas coordinates
-  const transform = line.calcTransformMatrix();
-
-  // Transform the line endpoints using the transformation matrix
-  const transformPoint = (x: number, y: number) => {
-    return fabric.util.transformPoint(
-      new fabric.Point(x, y),
-      transform
-    );
-  };
-
-  const start = transformPoint(point1.x1, point1.y1);
-  const end = transformPoint(point1.x2, point1.y2);
-
-  // Calculate arrow angle from start to end
-  const dx = end.x - start.x;
-  const dy = end.y - start.y;
-  const arrowAngle = Math.atan2(dy, dx) * (180 / Math.PI);
-
-  // Update triangle position and angle (keep size constant)
-  triangle.set({
-    left: end.x,
-    top: end.y,
-    angle: arrowAngle + 90, // +90 because triangle points up by default
-  });
-  triangle.setCoords();
 }
 
 /**
@@ -349,99 +317,6 @@ function saveCanvasSnapshot() {
 }
 
 /**
- * Reconnect arrow objects after canvas restoration
- * This is needed because arrow lines and heads need to be linked together
- */
-function reconnectArrows() {
-  if (!fabricCanvas) return;
-
-  // Reconnect arrow objects and restore event handlers
-  const objects = fabricCanvas.getObjects();
-    const arrowMap = new Map<string, { line?: fabric.Line; head?: fabric.Triangle }>();
-
-    // First pass: collect arrow objects by arrowId
-    objects.forEach((obj) => {
-      const arrowId = (obj as fabric.Object & { arrowId?: string }).arrowId;
-      if (arrowId) {
-        if (!arrowMap.has(arrowId)) {
-          arrowMap.set(arrowId, {});
-        }
-        const arrowPair = arrowMap.get(arrowId)!;
-
-        if (obj.type === 'line' || obj.type === 'editableLine') {
-          arrowPair.line = obj as fabric.Line;
-        } else if (obj.type === 'triangle') {
-          arrowPair.head = obj as fabric.Triangle;
-        }
-      }
-    });
-
-    // Second pass: reconnect arrow pairs and restore event handlers
-    arrowMap.forEach(({ line, head }) => {
-      if (line && head) {
-        // Restore references
-        (line as fabric.Line & { arrowHead?: fabric.Triangle }).arrowHead = head;
-        (head as fabric.Triangle & { arrowLine?: fabric.Line }).arrowLine = line;
-
-        // Restore event handlers for arrow line
-        const updateHandler = () => {
-          updateArrowHead(line, head);
-          fabricCanvas!.renderAll();
-        };
-
-        line.on('moving', updateHandler);
-        line.on('scaling', updateHandler);
-        line.on('rotating', updateHandler);
-        line.on('modified', updateHandler);
-      }
-    });
-
-  // Auto-select restored objects if any (restore selection state)
-  if (objects && objects.length > 0) {
-    // Select the last object (most recently added/modified)
-    let lastObject = objects[objects.length - 1];
-
-    // If the last object is not selectable (e.g., arrow head triangle)
-    // try to find its associated selectable object (e.g., arrow line)
-    if (lastObject.selectable === false) {
-      // Check if it's part of an arrow (has arrowLine reference)
-      const arrowLine = (lastObject as fabric.Object & { arrowLine?: fabric.Object }).arrowLine;
-      if (arrowLine && arrowLine.selectable) {
-        lastObject = arrowLine;
-      } else {
-        // Find the last selectable object
-        for (let i = objects.length - 1; i >= 0; i--) {
-          if (objects[i].selectable !== false) {
-            lastObject = objects[i];
-            break;
-          }
-        }
-      }
-    }
-
-    // Only select if the object is selectable
-    if (lastObject.selectable !== false) {
-      fabricCanvas.setActiveObject(lastObject);
-    }
-  } else {
-    // Clear selection when no objects (prevents ghost bounding box)
-    fabricCanvas.discardActiveObject();
-  }
-
-  fabricCanvas.renderAll();
-
-  // Extra clear to ensure no ghost selection
-  if (objects.length === 0) {
-    setTimeout(() => {
-      fabricCanvas!.discardActiveObject();
-      fabricCanvas!._activeObject = null;
-      fabricCanvas!._hoveredTarget = null;
-      fabricCanvas!.requestRenderAll();
-    }, 50);
-  }
-}
-
-/**
  * Restore canvas from snapshot (legacy - kept for manual restoration)
  */
 function restoreSnapshot(canvasState: CanvasState) {
@@ -466,8 +341,8 @@ function restoreSnapshot(canvasState: CanvasState) {
       fabricCanvas!.backgroundColor = '#ffffff';
     }
 
-    // Reconnect arrows after restoration
-    reconnectArrows();
+    // Re-render to ensure everything is drawn correctly
+    fabricCanvas!.renderAll();
   });
 }
 /**
@@ -668,194 +543,13 @@ watch(() => toolbarStore.fontSize, (newFontSize) => {
   }
 });
 
-/**
- * Add image to canvas from blob
- * Common logic for paste and drag-drop
- * @param blob - Image blob to add
- * @param position - Optional position {x, y}. If not provided, image is centered
- * @param source - Source of the image ('paste' or 'drop') for toast message
- */
-function addImageToCanvas(blob: Blob, position?: { x: number; y: number }, source: 'paste' | 'drop' = 'paste') {
-  if (!fabricCanvas) return;
-
-  // Remove selection rectangle if exists
-  if (selectTool?.getSelectionRect()) {
-    selectTool?.removeSelectionRect();
-    fabricCanvas.renderAll();
-  }
-
-  // Read image as data URL
-  const reader = new FileReader();
-  reader.onload = (event) => {
-    const dataUrl = event.target?.result as string;
-    
-    // Create Fabric.Image from data URL
-    fabric.Image.fromURL(dataUrl, (img) => {
-      if (!fabricCanvas) return;
-      
-      // Scale image to fit canvas (max 80% of canvas size)
-      const maxWidth = fabricCanvas.width! * 0.8;
-      const maxHeight = fabricCanvas.height! * 0.8;
-      
-      if (img.width! > maxWidth || img.height! > maxHeight) {
-        const scale = Math.min(
-          maxWidth / img.width!,
-          maxHeight / img.height!
-        );
-        img.scale(scale);
-      }
-      
-      // Position image
-      if (position) {
-        // Position at drop location
-        img.set({
-          left: position.x,
-          top: position.y,
-          originX: 'center',
-          originY: 'center',
-          hoverCursor: 'move',
-          moveCursor: 'move',
-        });
-      } else {
-        // Position at center
-        img.set({
-          left: fabricCanvas.width! / 2,
-          top: fabricCanvas.height! / 2,
-          originX: 'center',
-          originY: 'center',
-          hoverCursor: 'move',
-          moveCursor: 'move',
-        });
-      }
-      
-      // Disable drawing mode to allow image manipulation
-      fabricCanvas.isDrawingMode = false;
-      
-      // Add to canvas and select
-      fabricCanvas.add(img);
-      fabricCanvas.setActiveObject(img);
-      fabricCanvas.renderAll();
-      
-      // Save snapshot for undo/redo
-      saveCanvasSnapshot();
-      
-      // Show success message
-      const message = source === 'paste' ? 'Image pasted from clipboard' : 'Image added from file';
-      toastStore.success(message);
-    });
-  };
-  
-  reader.readAsDataURL(blob);
-}
-
-/**
- * Handle clipboard paste event
- * Adds images from clipboard to canvas
- */
-const handlePaste = async (e: ClipboardEvent) => {
-  const items = e.clipboardData?.items;
-  if (!items || !fabricCanvas) return;
-
-  for (let i = 0; i < items.length; i++) {
-    // Check if item is an image
-    if (items[i].type.indexOf('image') !== -1) {
-      const blob = items[i].getAsFile();
-      if (!blob) continue;
-
-      addImageToCanvas(blob, undefined, 'paste');
-      break; // Only process first image
-    }
-  }
-};
-
-/**
- * Handle drag over event
- * Allows files to be dropped on canvas
- */
-const handleDragOver = (e: DragEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  // Set dropEffect to indicate copy operation
-  if (e.dataTransfer) {
-    e.dataTransfer.dropEffect = 'copy';
-  }
-};
-
-/**
- * Handle drop event
- * Adds dropped image files to canvas
- */
-const handleDrop = (e: DragEvent) => {
-  e.preventDefault();
-  e.stopPropagation();
-  
-  const files = e.dataTransfer?.files;
-  if (!files || !fabricCanvas) return;
-
-  // Process first image file only
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    
-    // Check if file is an image
-    if (file.type.indexOf('image') !== -1) {
-      // Calculate drop position relative to canvas
-      const canvasRect = canvasEl.value?.getBoundingClientRect();
-      if (!canvasRect) {
-        addImageToCanvas(file, undefined, 'drop');
-        break;
-      }
-      
-      const position = {
-        x: e.clientX - canvasRect.left,
-        y: e.clientY - canvasRect.top,
-      };
-      
-      addImageToCanvas(file, position, 'drop');
-      break; // Only process first image
-    }
-  }
-};
-
-
-/**
- * Handle deletion of objects, including complex objects like arrows
- * @param canvas The fabric canvas instance
- */
-function handleCanvasDelete(canvas: fabric.Canvas) {
-  const activeObject = canvas.getActiveObject();
-  if (!activeObject) return;
-
-  if (activeObject.type === 'activeSelection') {
-    // Handle group selection
-    (activeObject as fabric.ActiveSelection).getObjects().forEach(obj => {
-      // @ts-expect-error - custom prop
-      const associatedHead = obj.arrowHead;
-      canvas.remove(obj);
-      if (associatedHead) {
-        canvas.remove(associatedHead);
-      }
-    });
-  } else {
-    // Handle single object selection
-    // @ts-expect-error - custom prop
-    const associatedHead = activeObject.arrowHead;
-    canvas.remove(activeObject);
-    if (associatedHead) {
-      canvas.remove(associatedHead);
-    }
-  }
-
-  canvas.discardActiveObject();
-  canvas.renderAll();
-  saveCanvasSnapshot();
-}
 
 onMounted(() => {
   if (!canvasEl.value) return;
 
-  // NEW: Initialize core whiteboard managers
+  // Initialize core whiteboard managers
   registerEditableLine(); // Register EditableLine for deserialization
+  registerArrowObject(); // Register ArrowObject for deserialization
   canvasManager = new CanvasManager(canvasEl.value, {
     width: window.innerWidth,
     height: window.innerHeight - 56,
@@ -921,19 +615,48 @@ onMounted(() => {
     propertiesToInclude: ['arrowId', 'selectable', 'evented']
   });
 
+  // Expose historyManager and state for E2E testing (Moved after initialization)
+  window.historyManager = historyManager;
+  window.undoRedoState = {
+    canUndo: canUndoRef,
+    canRedo: canRedoRef
+  };
+  // Expose loading state for E2E testing
+  window.isCanvasLoading = isCanvasLoading;
+
   // Setup event listeners for UI state updates
   historyManager.on('change', (event) => {
     canUndoRef.value = event.canUndo;
     canRedoRef.value = event.canRedo;
   });
 
+  // Helper function to restore selection state after undo/redo
+  const restoreSelectionAfterHistoryNav = () => {
+    if (!fabricCanvas) return;
+    
+    // Find all objects that are selectable (in this app, only active objects are selectable)
+    const selectableObjects = fabricCanvas.getObjects().filter(obj => obj.selectable);
+    
+    if (selectableObjects.length > 0) {
+      if (selectableObjects.length === 1) {
+        fabricCanvas.setActiveObject(selectableObjects[0]);
+      } else {
+        const selection = new fabric.ActiveSelection(selectableObjects, {
+          canvas: fabricCanvas
+        });
+        fabricCanvas.setActiveObject(selection);
+      }
+      fabricCanvas.renderAll();
+    }
+  };
+
   // Reconnect arrows after undo/redo
   // Events are emitted after loadFromJSON callback completes
   historyManager.on('undo', () => {
-    reconnectArrows();
+    restoreSelectionAfterHistoryNav();
   });
   historyManager.on('redo', () => {
-    reconnectArrows();
+    restoreSelectionAfterHistoryNav();
   });
 
   // Register refactored tools
@@ -1058,110 +781,80 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
 
     // Setup event-driven auto-save
     setupAutoSave();
+    
+    // Mark loading as complete
+    isCanvasLoading.value = false;
   });
 
-  // Handle keyboard shortcuts
-  const handleKeydown = (e: KeyboardEvent) => {
-    if (!fabricCanvas) return;
-
-    // Check if user is editing text (to prevent shortcuts from interfering)
-    const activeObject = fabricCanvas.getActiveObject();
-    const isEditingText = activeObject && activeObject.type === 'i-text' && (activeObject as fabric.IText).isEditing;
-
-    // [ - Decrease stroke width (disabled during text editing)
-    if (e.key === '[' && !isEditingText) {
-      const currentWidth = toolbarStore.strokeWidth;
-      const newWidth = Math.max(1, currentWidth - 1);
-      toolbarStore.setStrokeWidth(newWidth);
-      // Update eraser cursor immediately if eraser tool is active
-      if (toolbarStore.currentTool === 'eraser') {
-        updateCanvasCursor();
-      }
-      return;
-    }
-
-    // ] - Increase stroke width (disabled during text editing)
-    if (e.key === ']' && !isEditingText) {
-      const currentWidth = toolbarStore.strokeWidth;
-      const newWidth = Math.min(20, currentWidth + 1);
-      toolbarStore.setStrokeWidth(newWidth);
-      // Update eraser cursor immediately if eraser tool is active
-      if (toolbarStore.currentTool === 'eraser') {
-        updateCanvasCursor();
-      }
-      return;
-    }
-
-    // ESC - Cancel selection / Deselect
-    if (e.key === 'Escape') {
-      // Remove selection rectangle if exists
-      if (selectTool?.getSelectionRect()) {
-        selectTool?.removeSelectionRect();
-        fabricCanvas.renderAll();
-        return;
-      }
-
-      // Deselect active object if exists
-      const activeObject = fabricCanvas.getActiveObject();
-      if (activeObject) {
-        fabricCanvas.discardActiveObject();
-        fabricCanvas.renderAll();
-        return;
-      }
-    }
-    
-    // Ctrl+C - Copy selected region
-    if (e.ctrlKey && e.key === 'c') {
-      // Check if region is selected (select tool with selection rectangle)
-      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
-        e.preventDefault();
-        copySelectedRegion();
-        return;
-      }
-    }
-    
-    // Delete key
-    if (e.key === 'Delete') {
-      // Check if region is selected (select tool with selection rectangle)
-      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
-        deleteSelectedRegion();
-        return;
-      }
-      
-      // Otherwise, remove selected object(s)
-      handleCanvasDelete(fabricCanvas);
-    }
-    
-    // Ctrl+S - Save canvas as file
-    if (e.ctrlKey && e.key === 's') {
-      e.preventDefault();
+  // Initialize Handlers
+  const keyboardHandler = new KeyboardHandler(canvasManager, historyManager, toolManager, {
+    onSave: () => {
       // Emit event to parent (App.vue) to handle save
       const event = new CustomEvent('save-canvas-shortcut');
       window.dispatchEvent(event);
-    }
-
-    // Ctrl+Z - Undo
-    if (e.ctrlKey && e.key === 'z' && !e.shiftKey) {
-      e.preventDefault();
-      if (historyManager) {
-        historyManager.undo();
-        // HistoryManager automatically restores the snapshot
+    },
+    onBrushSizeChange: (delta) => {
+      const currentWidth = toolbarStore.strokeWidth;
+      const newWidth = Math.max(1, Math.min(20, currentWidth + delta));
+      toolbarStore.setStrokeWidth(newWidth);
+      if (toolbarStore.currentTool === 'eraser') {
+        updateCanvasCursor();
+      }
+    },
+    onCopy: () => {
+      // Only copy region if select tool is active and a region is selected
+      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
+        copySelectedRegion();
+      }
+    },
+    onDelete: () => {
+      // Prioritize deleting selection region
+      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
+        deleteSelectedRegion(); // This deletes the selection overlay and flattens
+      } else {
+        // Fallback: Delete currently active object(s)
+        if (fabricCanvas) {
+          const activeObject = fabricCanvas.getActiveObject();
+          if (activeObject) {
+            if (activeObject.type === 'activeSelection') {
+              (activeObject as fabric.ActiveSelection).getObjects().forEach(obj => {
+                fabricCanvas?.remove(obj);
+              });
+            } else {
+              fabricCanvas.remove(activeObject);
+            }
+            fabricCanvas.discardActiveObject();
+            fabricCanvas.renderAll();
+            saveCanvasSnapshot(); // Save snapshot after deletion
+          }
+        }
       }
     }
+  });
+  keyboardHandler.attach();
+  // If Electron API is not available (e.g., web environment in dev) use document listener
+  if (window.electronAPI?.on) { // Check if window.electronAPI is defined and has 'on' property
+    // Electron's main process will forward keydown events
+    window.electronAPI.on('keydown', keyboardHandler.handleKeydown);
+  }
+  // No else block needed here, as keyboardHandler.attach() already adds document.addEventListener if not in Electron.
 
-    // Ctrl+Shift+Z or Ctrl+Y - Redo
-    if ((e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'z') ||
-        (e.ctrlKey && e.key === 'y')) {
-      e.preventDefault();
-      if (historyManager) {
-        historyManager.redo();
-        // HistoryManager automatically restores the snapshot
-      }
-    }
-  };
-  
-  document.addEventListener('keydown', handleKeydown);
-  fabricCanvas._keydownHandler = handleKeydown;
+  const clipboardHandler = new ClipboardHandler(canvasManager, historyManager, {
+    onPasteImage: () => toastStore.success('Image pasted from clipboard'),
+    onError: (error) => toastStore.error(`Failed to paste image: ${error.message}`)
+  });
+  clipboardHandler.attach();
+  // Removed window.addEventListener('paste', handlePaste);
+
+  const dragDropHandler = new DragDropHandler(canvasManager, historyManager, {
+    onDropImage: () => toastStore.success('Image added from file'),
+    onError: (error) => toastStore.error(`Failed to add image: ${error.message}`)
+  });
+  if (canvasEl.value) {
+    dragDropHandler.attach(canvasEl.value);
+  }
+  // Removed canvasEl.value.addEventListener('dragover', handleDragOver);
+  // Removed canvasEl.value.addEventListener('drop', handleDrop);
 
   // Handle window resize
   const handleResize = () => {
@@ -1171,23 +864,11 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
       window.innerHeight - 56 // Subtract toolbar height
     );
   };
-
   window.addEventListener('resize', handleResize);
 
-  // Register paste event listener
-  window.addEventListener('paste', handlePaste);
-
-  // Register drag and drop event listeners
-  if (canvasEl.value) {
-    canvasEl.value.addEventListener('dragover', handleDragOver);
-    canvasEl.value.addEventListener('drop', handleDrop);
-  }
-
   // Store handlers for cleanup
-  fabricCanvas._resizeHandler = handleResize;
-  fabricCanvas._pasteHandler = handlePaste;
-  fabricCanvas._dragoverHandler = handleDragOver;
-  fabricCanvas._dropHandler = handleDrop;
+  fabricCanvas._resizeHandler = handleResize; // Still need this for cleanup
+  // Replaced individual handlers with class instances
 });
 
 /**
@@ -1334,27 +1015,22 @@ onBeforeUnmount(() => {
     historyManager = null;
   }
 
+  // Detach handlers
+  if (keyboardHandler) { // Assuming keyboardHandler is accessible in this scope.
+    keyboardHandler.detach();
+  }
+  if (clipboardHandler) {
+    clipboardHandler.detach();
+  }
+  if (dragDropHandler) {
+    dragDropHandler.detach();
+  }
+
   if (fabricCanvas) {
     const resizeHandler = fabricCanvas._resizeHandler;
-    const pasteHandler = fabricCanvas._pasteHandler;
-    const keydownHandler = fabricCanvas._keydownHandler;
-    const dragoverHandler = fabricCanvas._dragoverHandler;
-    const dropHandler = fabricCanvas._dropHandler;
 
     if (resizeHandler) {
       window.removeEventListener('resize', resizeHandler);
-    }
-    if (pasteHandler) {
-      window.removeEventListener('paste', pasteHandler);
-    }
-    if (keydownHandler) {
-      document.removeEventListener('keydown', keydownHandler);
-    }
-    if (dragoverHandler && canvasEl.value) {
-      canvasEl.value.removeEventListener('dragover', dragoverHandler);
-    }
-    if (dropHandler && canvasEl.value) {
-      canvasEl.value.removeEventListener('drop', dropHandler);
     }
 
     // Clean up shape drawing handlers

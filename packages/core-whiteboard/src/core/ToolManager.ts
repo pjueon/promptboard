@@ -62,6 +62,13 @@ export class ToolManager {
   }
 
   /**
+   * Get current active tool instance
+   */
+  getActiveTool(): Tool | null {
+    return this.activeTool;
+  }
+
+  /**
    * Check if the current tool is in a drawing state
    */
   isDrawing(): boolean {

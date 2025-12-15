@@ -30,13 +30,7 @@ export async function launchApp(): Promise<ElectronApplication> {
 export async function clearAutoSaveData(page: Page): Promise<void> {
   // First, delete the auto-save file from disk
   await page.evaluate(async () => {
-    const win = window as {
-      electronAPI?: {
-        whiteboard?: {
-          deleteState?: () => Promise<boolean>;
-        };
-      };
-    };
+    const win = window; // Use augmented Window interface
     
     if (win.electronAPI?.whiteboard?.deleteState) {
       await win.electronAPI.whiteboard.deleteState();
@@ -51,31 +45,27 @@ export async function clearAutoSaveData(page: Page): Promise<void> {
   
   // Clear canvas and history
   await page.evaluate(() => {
-    const win = window as {
-      fabricCanvas?: { clear?: () => void; renderAll?: () => void; backgroundColor?: string };
-      historyStore?: { clearHistory?: () => void; saveSnapshot?: (dataUrl: string) => void };
-    };
+    const win = window; // Use augmented Window interface
+    const canvas = win.fabricCanvas;
+    const historyManager = win.historyManager;
 
-    if (win.fabricCanvas?.clear) {
-      win.fabricCanvas.clear();
-      win.fabricCanvas.backgroundColor = '#ffffff'; // Set white background
-      if (win.fabricCanvas.renderAll) {
-        win.fabricCanvas.renderAll();
+    if (canvas?.clear) {
+      canvas.clear();
+      canvas.backgroundColor = '#ffffff'; // Set white background
+      if (canvas.renderAll) {
+        canvas.renderAll();
       }
     }
     
-    // Clear history store
-    if (win.historyStore?.clearHistory) {
-      win.historyStore.clearHistory();
+    // Clear history manager
+    if (historyManager?.clear) {
+      historyManager.clear();
     }
     
     // Save initial empty state snapshot
-    if (win.fabricCanvas && win.historyStore?.saveSnapshot) {
-      const dataUrl = (win.fabricCanvas as { toDataURL: (options: { format: string; quality: number }) => string }).toDataURL({
-        format: 'png',
-        quality: 0.9,
-      });
-      win.historyStore.saveSnapshot(dataUrl);
+    if (canvas && historyManager?.saveSnapshot) {
+      // HistoryManager saves the current canvas state automatically
+      historyManager.saveSnapshot();
     }
   });
   
@@ -101,6 +91,14 @@ export async function waitForAppReady(page: Page): Promise<void> {
   // Wait for toolbar to be visible
   await page.waitForSelector('[data-testid="tool-btn-pen"]', { timeout: 10000 });
   
+  // Wait for initial canvas loading (auto-save restoration) to complete
+  await page.waitForFunction(() => {
+    const win = window as unknown as { isCanvasLoading?: boolean | { value: boolean } };
+    return win.isCanvasLoading === false || win.isCanvasLoading?.value === false;
+  }, undefined, { timeout: 10000 }).catch(() => {
+    // Ignore timeout - might not be exposed or needed in all cases
+  });
+
   // Give extra time for app initialization
   await page.waitForTimeout(500);
 }
@@ -132,26 +130,18 @@ export async function hasBackgroundImage(page: Page): Promise<boolean> {
  */
 export async function hasCanvasContent(page: Page): Promise<boolean> {
   return await page.evaluate(() => {
-    const win = window as { 
-      fabricCanvas?: { 
-        getObjects: () => unknown[];
-      };
-      historyStore?: {
-        currentIndex: number;
-      };
-    };
-    
+    const win = window; // Use augmented Window interface
     const canvas = win.fabricCanvas;
-    const historyStore = win.historyStore;
+    const historyManager = win.historyManager;
     
-    if (!canvas || !historyStore) return false;
+    if (!canvas || !historyManager) return false;
     
     // Check if there are objects
     if (canvas.getObjects().length > 0) return true;
     
     // Check history index - if it's 0, we're at the initial empty state
     // If it's > 0, there's content (even if it's in background image)
-    return historyStore.currentIndex > 0;
+    return historyManager.getCurrentIndex() > 0;
   });
 }
 

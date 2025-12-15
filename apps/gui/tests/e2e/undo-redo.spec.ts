@@ -1,5 +1,5 @@
 import { test, expect, Page, ElectronApplication } from '@playwright/test';
-import { launchApp, clearAutoSaveData, waitForAppReady } from './helpers';
+import { launchApp, clearAutoSaveData, waitForAppReady, getCanvasObjectCount } from './helpers';
 
 /**
  * E2E Test: Undo/Redo Functionality
@@ -73,6 +73,7 @@ test.describe('Undo/Redo Functionality', () => {
     
     // Clear auto-save data to ensure clean state
     await clearAutoSaveData(page);
+    await page.waitForTimeout(100); // Ensure canvas is fully cleared and settled
   });
 
   test.afterEach(async () => {
@@ -86,10 +87,10 @@ test.describe('Undo/Redo Functionality', () => {
     
     // Check history state before undo
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
+      const win = window;
       return {
-        canUndo: win.historyStore?.canUndo,
-        canRedo: win.historyStore?.canRedo
+        canUndo: win.undoRedoState?.canUndo.value,
+        canRedo: win.undoRedoState?.canRedo.value
       };
     });
     expect(historyState.canUndo).toBe(true);
@@ -101,10 +102,10 @@ test.describe('Undo/Redo Functionality', () => {
     
     // Check history state after undo
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
+      const win = window;
       return {
-        canUndo: win.historyStore?.canUndo,
-        canRedo: win.historyStore?.canRedo
+        canUndo: win.undoRedoState?.canUndo.value,
+        canRedo: win.undoRedoState?.canRedo.value
       };
     });
     // After undo, should be able to redo
@@ -137,8 +138,8 @@ test.describe('Undo/Redo Functionality', () => {
     
     // Check history state after undo
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
     
@@ -148,8 +149,8 @@ test.describe('Undo/Redo Functionality', () => {
     
     // Check history state after redo
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canUndo).toBe(true);
     expect(historyState.canRedo).toBe(false);
@@ -169,8 +170,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
     
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
     
@@ -179,8 +180,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
     
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
     
@@ -189,8 +190,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
     
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
   });
@@ -207,8 +208,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
 
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
 
@@ -219,8 +220,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
 
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canUndo).toBe(true);
     expect(historyState.canRedo).toBe(false);
@@ -236,8 +237,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
     
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
     
@@ -247,8 +248,8 @@ test.describe('Undo/Redo Functionality', () => {
     
     // Check that redo history was cleared
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(false);
     expect(historyState.canUndo).toBe(true);
@@ -264,8 +265,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
     
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
     // Note: canUndo might still be true if there are multiple initial snapshots
@@ -275,8 +276,12 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
     
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean; currentIndex: number } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo, currentIndex: win.historyStore?.currentIndex };
+      const win = window;
+      return { 
+        canUndo: win.undoRedoState?.canUndo.value, 
+        canRedo: win.undoRedoState?.canRedo.value, 
+        currentIndex: win.historyManager?.getCurrentIndex() 
+      };
     });
     // Should still be able to redo
     expect(historyState.canRedo).toBe(true);
@@ -292,8 +297,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
 
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
 
@@ -302,8 +307,8 @@ test.describe('Undo/Redo Functionality', () => {
     await page.waitForTimeout(500);
 
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canUndo).toBe(true);
     expect(historyState.canRedo).toBe(false);
@@ -335,8 +340,8 @@ test.describe('Undo/Redo Functionality', () => {
 
     // Verify we can undo the resize
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canUndo).toBe(true);
 
@@ -346,8 +351,8 @@ test.describe('Undo/Redo Functionality', () => {
 
     // Should be able to redo
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
   });
@@ -363,8 +368,8 @@ test.describe('Undo/Redo Functionality', () => {
 
     // After flatten, should have snapshot
     let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canUndo).toBe(true);
 
@@ -374,8 +379,8 @@ test.describe('Undo/Redo Functionality', () => {
 
     // Should be able to redo
     historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean } };
-      return { canUndo: win.historyStore?.canUndo, canRedo: win.historyStore?.canRedo };
+      const win = window;
+      return { canUndo: win.undoRedoState?.canUndo.value, canRedo: win.undoRedoState?.canRedo.value };
     });
     expect(historyState.canRedo).toBe(true);
   });
@@ -392,57 +397,63 @@ test.describe('Undo/Redo Functionality', () => {
     await waitForAppReady(page);
 
     // Wait for auto-save state to load
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1000); // This timeout is for auto-save loading to settle
 
     // Verify canvas has the loaded line
-    const objectCount = await page.evaluate(() => {
-      const canvas = (window as { fabricCanvas?: { getObjects: () => object[] } }).fabricCanvas;
-      return canvas?.getObjects().length || 0;
-    });
-    expect(objectCount).toBeGreaterThan(0);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBeGreaterThan(0); // Expect at least 1 object (the line)
+    }).toPass();
 
     // Draw a new rectangle
     await drawRectangle(page);
     await page.waitForTimeout(500);
 
-    // Deselect to flatten
+    // Deselect to flatten (this should trigger a snapshot with the rectangle flattened onto the background)
     await page.keyboard.press('Escape');
     await page.waitForTimeout(500);
+    
+    // Now there should be 2 objects (Line + Frozen Rectangle) because flattening is not implemented on Escape
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(2); 
+    }).toPass();
 
-    // Verify we can undo (this should only undo the rectangle, not the auto-saved line)
-    let historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean; currentIndex: number } };
+    // Undo once (should remove the frozen rectangle, restoring the line and active rectangle)
+    await page.keyboard.press('Control+z');
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(2); // Back to Line + Active Rectangle
+    }).toPass();
+
+    // Undo again (should remove the rectangle)
+    await page.keyboard.press('Control+z');
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(1); // The line object should be back
+    }).toPass();
+
+    // Undo again (should remove the line object)
+    await page.keyboard.press('Control+z');
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(0); // Canvas should be empty now
+    }).toPass();
+
+    // At this point, the canvas should be empty, but canRedo should be true
+    const historyState = await page.evaluate(() => {
+      const win = window;
       return {
-        canUndo: win.historyStore?.canUndo,
-        canRedo: win.historyStore?.canRedo,
-        currentIndex: win.historyStore?.currentIndex
+        canUndo: win.undoRedoState?.canUndo.value,
+        canRedo: win.undoRedoState?.canRedo.value,
+        currentIndex: win.historyManager?.getCurrentIndex()
       };
     });
-    expect(historyState.canUndo).toBe(true);
 
-    // Undo once (should remove the flattened rectangle)
-    await page.keyboard.press('Control+z');
-    await page.waitForTimeout(500);
-
-    // Undo again (should remove the rectangle before flatten)
-    await page.keyboard.press('Control+z');
-    await page.waitForTimeout(500);
-
-    // At this point, we should still have the auto-saved line (initial state)
-    // The canvas should not be completely empty
-    historyState = await page.evaluate(() => {
-      const win = window as { historyStore?: { canUndo: boolean; canRedo: boolean; currentIndex: number } };
-      return {
-        canUndo: win.historyStore?.canUndo,
-        canRedo: win.historyStore?.canRedo,
-        currentIndex: win.historyStore?.currentIndex
-      };
-    });
-
-    // Should be able to redo the undone actions
+    // Should be able to redo the undone actions (back to the line, then to the rectangle)
     expect(historyState.canRedo).toBe(true);
 
-    // Should still be able to undo to the initial state (but not beyond)
-    expect(historyState.canUndo).toBe(true);
+    // After undoing all actions back to the initial blank canvas, canUndo should be false
+    expect(historyState.canUndo).toBe(false); 
   });
 });

@@ -156,9 +156,9 @@ test.describe('Drawing Tools Functionality', () => {
     const finalCount = await getCanvasObjectCount(page);
     expect(finalCount).toBeGreaterThan(0);
     
-    // Arrow creates both line and triangle
+    // Arrow creates a single ArrowObject (type: 'arrow')
     const objectType = await getLastObjectType(page);
-    expect(objectType).toMatch(/group|line|triangle/);
+    expect(objectType).toBe('arrow');
   });
 
   test('should draw a rectangle', async () => {

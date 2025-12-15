@@ -1,7 +1,7 @@
 import { test, expect, _electron as electron, Page, ElectronApplication } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { clearAutoSaveData, waitForAppReady, hasCanvasContent } from './helpers';
+import { clearAutoSaveData, waitForAppReady } from './helpers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -132,31 +132,35 @@ test.describe('Keyboard Shortcuts', () => {
   test('Ctrl+Shift+Z should redo last undone action', async () => {
     await drawRectangle(page);
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(200);
     
-    let hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(false);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(0);
+    }).toPass();
     
     await page.keyboard.press('Control+Shift+z');
-    await page.waitForTimeout(200);
     
-    hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(true);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(1);
+    }).toPass();
   });
 
   test('Ctrl+Y should redo (alternative shortcut)', async () => {
     await drawRectangle(page);
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(200);
     
-    let hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(false);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(0);
+    }).toPass();
     
     await page.keyboard.press('Control+y');
-    await page.waitForTimeout(200);
     
-    hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(true);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(1);
+    }).toPass();
   });
 
   test('Ctrl+S should trigger save dialog', async () => {
@@ -222,45 +226,88 @@ test.describe('Keyboard Shortcuts', () => {
   test('Multiple undo operations with Ctrl+Z', async () => {
     // Draw three objects
     // Note: Each drawing saves 2 snapshots (one for the object, one for flatten on tool change)
-    await drawRectangle(page);
-    await drawLine(page);
-    await drawLine(page, 50, 50);
+    await drawRectangle(page); // 1st object
+    await drawLine(page); // 2nd object
+    await drawLine(page, 50, 50); // 3rd object
     
-    let hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(true);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(3);
+    }).toPass();
     
     // Need to undo 6 times to get back to initial state
-    // (3 drawings × 2 snapshots each = 6 snapshots)
+    // (3 drawings × 2 snapshots each = 6 snapshots assumed by original test)
     for (let i = 0; i < 6; i++) {
       await page.keyboard.press('Control+z');
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(200); // Small pause between key presses
     }
     
-    hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(false);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(0);
+    }).toPass();
   });
 
   test('Shortcuts should work in sequence', async () => {
     // Draw
     await drawRectangle(page);
-    const count = await getCanvasObjectCount(page);
-    expect(count).toBeGreaterThanOrEqual(1);
+    
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(1);
+    }).toPass();
     
     // Undo
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(200);
-    let hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(false);
     
-    // Redo
-    await page.keyboard.press('Control+Shift+z');
-    await page.waitForTimeout(200);
-    hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(true);
-
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(0);
+    }).toPass();
     
-    // Delete
-    await page.keyboard.press('Delete');
+        // Redo
+    
+        await page.keyboard.press('Control+Shift+z');
+    
+        
+    
+        await expect(async () => {
+    
+          const count = await getCanvasObjectCount(page);
+    
+          expect(count).toBe(1);
+    
+        }).toPass();
+    
+    
+    
+        // After redo, the object might not be actively selected.
+    
+        // Explicitly select the object to ensure it's active for deletion.
+    
+        await page.click('[data-testid="tool-btn-select"]'); // Switch to select tool
+    
+        await page.waitForTimeout(100); // Allow tool switch to settle
+    
+        const canvas = await page.locator('canvas').first();
+    
+        const box = await canvas.boundingBox();
+    
+        if (box) {
+    
+          // Click in the center where the object should be to activate it
+    
+          await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    
+          await page.waitForTimeout(200); // Allow selection to register
+    
+        }
+    
+        
+    
+        // Delete
+    
+        await page.keyboard.press('Delete');
 
     // Wait for the object to be removed, polling for the condition
     await expect(async () => {

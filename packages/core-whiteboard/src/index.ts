@@ -27,6 +27,19 @@ export { SelectTool } from './tools/SelectTool';
 
 // Fabric objects
 export { EditableLine, registerEditableLine } from './fabric-objects/EditableLine';
+export { ArrowObject, registerArrowObject } from './fabric-objects/ArrowObject';
+
+// Handlers
+export { KeyboardHandler } from './handlers/KeyboardHandler';
+export type { KeyboardHandlerConfig } from './handlers/KeyboardHandler';
+export { ClipboardHandler } from './handlers/ClipboardHandler';
+export type { ClipboardHandlerConfig } from './handlers/ClipboardHandler';
+export { DragDropHandler } from './handlers/DragDropHandler';
+export type { DragDropHandlerConfig } from './handlers/DragDropHandler';
+
+// Utils
+export { addImageToCanvas } from './utils/imageUtils';
+export type { AddImageOptions } from './utils/imageUtils';
 
 // Types
 export type {

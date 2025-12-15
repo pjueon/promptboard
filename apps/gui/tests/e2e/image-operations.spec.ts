@@ -1,7 +1,7 @@
 import { test, expect, _electron as electron, Page, ElectronApplication } from '@playwright/test';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { clearAutoSaveData, waitForAppReady, hasCanvasContent } from './helpers';
+import { clearAutoSaveData, waitForAppReady } from './helpers';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -232,24 +232,27 @@ test.describe('Image Operations', () => {
   test('should maintain image after undo/redo', async () => {
     // Add an image
     await simulateImageDrop(page, testImageDataUrl);
-    await page.waitForTimeout(300);
     
-    let hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(true);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(1);
+    }).toPass();
     
     // Undo
     await page.keyboard.press('Control+z');
-    await page.waitForTimeout(300);
     
-    hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(false);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(0);
+    }).toPass();
     
     // Redo
     await page.keyboard.press('Control+Shift+z');
-    await page.waitForTimeout(300);
     
-    hasContent = await hasCanvasContent(page);
-    expect(hasContent).toBe(true);
+    await expect(async () => {
+      const count = await getCanvasObjectCount(page);
+      expect(count).toBe(1);
+    }).toPass();
   });
 
   test('should handle invalid image data gracefully', async () => {
