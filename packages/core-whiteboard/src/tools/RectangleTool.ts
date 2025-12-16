@@ -15,6 +15,7 @@ export class RectangleTool extends ConstrainedShapeTool {
       fill: 'transparent',
       stroke: this.config.color,
       strokeWidth: this.config.strokeWidth,
+      strokeUniform: true,
       selectable: false,
       evented: false,
     });

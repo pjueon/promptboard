@@ -760,7 +760,12 @@ fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: f
   });
 
   // Register path:created event for pen and eraser tool - flatten immediately
-  fabricCanvas.on('path:created', () => {
+  fabricCanvas.on('path:created', (e: fabric.IEvent<Event> & { path?: fabric.Path }) => {
+    // Apply strokeUniform to the created path to prevent stroke width scaling
+    if (e.path) {
+      e.path.set({ strokeUniform: true });
+    }
+
     // Flatten strokes immediately (no selection) and save snapshot after completion
     setTimeout(() => {
       flattenCanvasToBackground(() => {
