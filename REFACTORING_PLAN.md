@@ -310,6 +310,7 @@ apps/gui/src/renderer/stores/
 - [x] `apps/gui/package.json`에 `@promptboard/vue-whiteboard` 의존성 추가
 - [x] `apps/gui`에서 `vue-whiteboard` 사용하도록 전환
 - [x] autoSaveStore 리펙토링
+- [x] App.vue에 autoSaveStore 연동 및 props 전달
 - [ ] 기존 코드 제거
 - [ ] E2E 테스트 업데이트
 

@@ -6,7 +6,11 @@
       @save-canvas="handleSaveCanvas"
       @toggle-sidebar="toggleSidebar"
     />
-    <WhiteboardCanvas ref="canvasRef" />
+    <WhiteboardCanvas
+      ref="canvasRef"
+      :auto-save-enabled="autoSaveStore.isEnabled"
+      :auto-save-debounce-ms="autoSaveStore.debounceMs"
+    />
     <AppSidebar
       :is-open="isSidebarOpen"
       @close="closeSidebar"
@@ -20,14 +24,16 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppTitlebar from './components/AppTitlebar.vue';
 import AppToolbar from './components/AppToolbar.vue';
-import { WhiteboardCanvas } from '@promptboard/vue-whiteboard'; // Updated import
+import { WhiteboardCanvas } from '@promptboard/vue-whiteboard';
 import AppSidebar from './components/AppSidebar.vue';
 import ToastContainer from './components/ToastContainer.vue';
 import { useToastStore } from './stores/toastStore';
+import { useAutoSaveStore } from './stores/autoSaveStore'; // Import useAutoSaveStore
 
 const { t } = useI18n();
 const toastStore = useToastStore();
-const canvasRef = ref<InstanceType<typeof WhiteboardCanvas> | null>(null); // Updated type
+const autoSaveStore = useAutoSaveStore(); // Initialize autoSaveStore
+const canvasRef = ref<InstanceType<typeof WhiteboardCanvas> | null>(null);
 const isSidebarOpen = ref(false);
 
 function handleClearAll() {
