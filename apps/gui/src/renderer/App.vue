@@ -6,11 +6,15 @@
       @save-canvas="handleSaveCanvas"
       @toggle-sidebar="toggleSidebar"
     />
-    <WhiteboardCanvas
-      ref="canvasRef"
-      :auto-save-enabled="autoSaveStore.isEnabled"
-      :auto-save-debounce-ms="autoSaveStore.debounceMs"
-    />
+    <div class="canvas-container" ref="canvasContainerRef">
+      <WhiteboardCanvas
+        ref="canvasRef"
+        :width="canvasWidth"
+        :height="canvasHeight"
+        :auto-save-enabled="autoSaveStore.isEnabled"
+        :auto-save-debounce-ms="autoSaveStore.debounceMs"
+      />
+    </div>
     <AppSidebar
       :is-open="isSidebarOpen"
       @close="closeSidebar"
@@ -20,7 +24,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue';
+import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppTitlebar from './components/AppTitlebar.vue';
 import AppToolbar from './components/AppToolbar.vue';
@@ -28,13 +32,18 @@ import { WhiteboardCanvas } from '@promptboard/vue-whiteboard';
 import AppSidebar from './components/AppSidebar.vue';
 import ToastContainer from './components/ToastContainer.vue';
 import { useToastStore } from './stores/toastStore';
-import { useAutoSaveStore } from './stores/autoSaveStore'; // Import useAutoSaveStore
+import { useAutoSaveStore } from './stores/autoSaveStore';
 
 const { t } = useI18n();
 const toastStore = useToastStore();
-const autoSaveStore = useAutoSaveStore(); // Initialize autoSaveStore
+const autoSaveStore = useAutoSaveStore();
 const canvasRef = ref<InstanceType<typeof WhiteboardCanvas> | null>(null);
+const canvasContainerRef = ref<HTMLElement | null>(null);
 const isSidebarOpen = ref(false);
+
+const canvasWidth = ref(800);
+const canvasHeight = ref(600);
+let resizeObserver: ResizeObserver | null = null;
 
 function handleClearAll() {
   canvasRef.value?.clearCanvas();
@@ -90,12 +99,43 @@ function handleSaveShortcut() {
   handleSaveCanvas();
 }
 
+function updateCanvasSize() {
+  if (canvasContainerRef.value) {
+    const { width, height } = canvasContainerRef.value.getBoundingClientRect();
+    // Only update if dimensions actually changed and are valid
+    if (width > 0 && height > 0 && (width !== canvasWidth.value || height !== canvasHeight.value)) {
+      canvasWidth.value = width;
+      canvasHeight.value = height;
+    }
+  }
+}
+
 onMounted(() => {
   window.addEventListener('save-canvas-shortcut', handleSaveShortcut);
+  
+  // Setup ResizeObserver
+  if (canvasContainerRef.value) {
+    resizeObserver = new ResizeObserver(() => {
+      // Use requestAnimationFrame to avoid "ResizeObserver loop limit exceeded"
+      requestAnimationFrame(() => {
+        updateCanvasSize();
+      });
+    });
+    resizeObserver.observe(canvasContainerRef.value);
+    
+    // Initial size update
+    nextTick(() => {
+      updateCanvasSize();
+    });
+  }
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('save-canvas-shortcut', handleSaveShortcut);
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+    resizeObserver = null;
+  }
 });
 </script>
 
@@ -106,5 +146,15 @@ onBeforeUnmount(() => {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-container {
+  flex: 1;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  background-color: #f3f4f6; /* Light gray background for the container area */
 }
 </style>
