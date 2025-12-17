@@ -20,14 +20,14 @@ import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppTitlebar from './components/AppTitlebar.vue';
 import AppToolbar from './components/AppToolbar.vue';
-import WhiteboardCanvas from './components/WhiteboardCanvas.vue';
+import { WhiteboardCanvas } from '@promptboard/vue-whiteboard'; // Updated import
 import AppSidebar from './components/AppSidebar.vue';
 import ToastContainer from './components/ToastContainer.vue';
 import { useToastStore } from './stores/toastStore';
 
 const { t } = useI18n();
 const toastStore = useToastStore();
-const canvasRef = ref<InstanceType<typeof WhiteboardCanvas> | null>(null);
+const canvasRef = ref<InstanceType<typeof WhiteboardCanvas> | null>(null); // Updated type
 const isSidebarOpen = ref(false);
 
 function handleClearAll() {
