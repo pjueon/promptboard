@@ -156,11 +156,6 @@ onMounted(() => {
       });
     });
     resizeObserver.observe(canvasContainerRef.value);
-    
-    // Initial size update
-    nextTick(() => {
-      updateCanvasSize();
-    });
   }
 });
 
