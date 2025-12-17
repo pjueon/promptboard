@@ -48,6 +48,7 @@ const {
   resize,
   onToolChange,
   onHistoryChange,
+  getManagers,
 } = useWhiteboard();
 
 // Initialize on mount
@@ -114,6 +115,7 @@ defineExpose({
   // Canvas access
   getCanvas,
   resize,
+  getManagers,
 });
 </script>
 

@@ -61,6 +61,20 @@ function onCanvasReady() {
       color: toolbarStore.color,
       strokeWidth: toolbarStore.strokeWidth,
     });
+
+    // Expose internals for E2E testing
+    const managers = canvasRef.value.getManagers();
+    if (managers) {
+      (window as any).fabricCanvas = managers.canvasManager?.getCanvas();
+      (window as any).historyManager = managers.historyManager;
+    }
+    
+    (window as any).undoRedoState = {
+      canUndo: canvasRef.value.canUndo,
+      canRedo: canvasRef.value.canRedo
+    };
+
+    (window as any).isCanvasLoading = { value: false };
   }
 }
 

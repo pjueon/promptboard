@@ -316,6 +316,7 @@ apps/gui/src/renderer/stores/
 - [x] App.vue에 toolbarStore 연동 (툴 선택 및 설정 동기화)
 - [x] App.vue 초기 캔버스 사이징 레이스 컨디션 수정
 - [x] useWhiteboard composable 수정 (콜백 누락 및 설정 업데이트 로직 개선)
+- [x] E2E 테스트 지원 수정 (App.vue 및 WhiteboardCanvas 내부 객체 노출)
 - [ ] E2E 테스트 업데이트
 
 ### PR 9: 최종 정리
