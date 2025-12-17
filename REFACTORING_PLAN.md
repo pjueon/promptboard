@@ -307,6 +307,7 @@ apps/gui/src/renderer/stores/
 - [x] 빌드 성공
 
 ### PR 8: GUI 앱 마이그레이션
+- [x] `apps/gui/package.json`에 `@promptboard/vue-whiteboard` 의존성 추가
 - [ ] `apps/gui`에서 `vue-whiteboard` 사용하도록 전환
 - [ ] Store 리펙토링
 - [ ] 기존 코드 제거
