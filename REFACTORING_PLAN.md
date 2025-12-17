@@ -315,6 +315,7 @@ apps/gui/src/renderer/stores/
 - [x] App.vue 캔버스 리사이징 및 레이아웃 수정
 - [x] App.vue에 toolbarStore 연동 (툴 선택 및 설정 동기화)
 - [x] App.vue 초기 캔버스 사이징 레이스 컨디션 수정
+- [x] useWhiteboard composable 수정 (콜백 누락 및 설정 업데이트 로직 개선)
 - [ ] E2E 테스트 업데이트
 
 ### PR 9: 최종 정리

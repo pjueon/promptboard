@@ -79,14 +79,25 @@ export function useWhiteboard(): UseWhiteboardReturn {
     // Initialize tool manager
     toolManager = new ToolManager(canvas, toolOptions);
 
+    // Callbacks for tools
+    const saveSnapshot = () => {
+      if (historyManager && !historyManager.isRestoringSnapshot()) {
+        historyManager.saveSnapshot();
+      }
+    };
+
+    const switchToSelect = () => {
+      setTool('select');
+    };
+
     // Register all tools
-    toolManager.registerTool('pen', new PenTool(canvas, toolOptions));
-    toolManager.registerTool('line', new LineTool(canvas, toolOptions));
-    toolManager.registerTool('arrow', new ArrowTool(canvas, toolOptions));
-    toolManager.registerTool('rectangle', new RectangleTool(canvas, toolOptions));
-    toolManager.registerTool('ellipse', new EllipseTool(canvas, toolOptions));
-    toolManager.registerTool('text', new TextTool(canvas, toolOptions));
-    toolManager.registerTool('eraser', new EraserTool(canvas, toolOptions));
+    toolManager.registerTool('pen', new PenTool(canvas, toolOptions, saveSnapshot));
+    toolManager.registerTool('line', new LineTool(canvas, toolOptions, saveSnapshot, switchToSelect));
+    toolManager.registerTool('arrow', new ArrowTool(canvas, toolOptions, saveSnapshot, switchToSelect));
+    toolManager.registerTool('rectangle', new RectangleTool(canvas, toolOptions, saveSnapshot, switchToSelect));
+    toolManager.registerTool('ellipse', new EllipseTool(canvas, toolOptions, saveSnapshot, switchToSelect));
+    toolManager.registerTool('text', new TextTool(canvas, toolOptions, saveSnapshot));
+    toolManager.registerTool('eraser', new EraserTool(canvas, toolOptions, saveSnapshot));
     toolManager.registerTool('select', new SelectTool(canvas, toolOptions));
 
     // Initialize history manager
@@ -158,22 +169,8 @@ export function useWhiteboard(): UseWhiteboardReturn {
   function setToolOptions(options: Partial<ToolConfig>): void {
     toolOptions = { ...toolOptions, ...options };
 
-    // Update all registered tools
     if (toolManager) {
-      const canvas = canvasManager!.getCanvas();
-      toolManager.registerTool('pen', new PenTool(canvas, toolOptions));
-      toolManager.registerTool('line', new LineTool(canvas, toolOptions));
-      toolManager.registerTool('arrow', new ArrowTool(canvas, toolOptions));
-      toolManager.registerTool('rectangle', new RectangleTool(canvas, toolOptions));
-      toolManager.registerTool('ellipse', new EllipseTool(canvas, toolOptions));
-      toolManager.registerTool('text', new TextTool(canvas, toolOptions));
-      toolManager.registerTool('eraser', new EraserTool(canvas, toolOptions));
-      toolManager.registerTool('select', new SelectTool(canvas, toolOptions));
-
-      // Re-activate current tool if set
-      if (currentTool.value) {
-        toolManager.activateTool(currentTool.value);
-      }
+      toolManager.updateConfig(options);
     }
   }
 
