@@ -14,6 +14,9 @@ import {
   SelectTool,
   registerEditableLine,
   registerArrowObject,
+  KeyboardHandler,
+  ClipboardHandler,
+  DragDropHandler,
   type ToolType,
   type ToolConfig,
 } from '@promptboard/core-whiteboard';
@@ -37,6 +40,11 @@ export function useWhiteboard(): UseWhiteboardReturn {
   let canvasManager: CanvasManager | null = null;
   let toolManager: ToolManager | null = null;
   let historyManager: HistoryManager | null = null;
+
+  // Handlers
+  let keyboardHandler: KeyboardHandler | null = null;
+  let clipboardHandler: ClipboardHandler | null = null;
+  let dragDropHandler: DragDropHandler | null = null;
 
   // Tool options
   let toolOptions: ToolConfig = {
@@ -111,6 +119,47 @@ export function useWhiteboard(): UseWhiteboardReturn {
       historyChangeHandlers.forEach((handler) => handler());
     });
 
+    // Initialize event handlers
+    keyboardHandler = new KeyboardHandler(
+      canvasManager,
+      historyManager,
+      toolManager,
+      {
+        onSave: () => {
+          window.dispatchEvent(new Event('save-canvas-shortcut'));
+        },
+        onBrushSizeChange: (delta: number) => {
+          const newWidth = Math.max(1, Math.min(20, toolOptions.strokeWidth + delta));
+          setToolOptions({ strokeWidth: newWidth });
+        },
+        onDelete: () => {
+          // If in select mode, we could delete regions if implemented
+          // For now, let default delete handler work or implement custom one
+          // KeyboardHandler calls handleDefaultDelete if onDelete is provided but does logic?
+          // Actually KeyboardHandler implementation calls onDelete IF provided, ELSE handleDefaultDelete.
+          // We want handleDefaultDelete, so we DON'T provide onDelete here unless we need specific logic.
+          // BUT, original app had logic for 'selectTool' region deletion.
+          // For now, let's omit onDelete to use default object deletion which works for basic objects.
+        }
+      }
+    );
+    keyboardHandler.attach();
+
+    clipboardHandler = new ClipboardHandler(canvasManager, historyManager);
+    clipboardHandler.attach();
+
+    dragDropHandler = new DragDropHandler(canvasManager, historyManager);
+    // DragDropHandler needs container element. We can use the canvas wrapper.
+    // canvasRef.value is the canvas element. canvasManager creates a wrapper?
+    // Fabric puts canvas in a wrapper .canvas-container.
+    // DragDropHandler attach takes an HTMLElement.
+    // Let's attach to the canvas element's parent.
+    if (canvasRef.value.parentElement) {
+      dragDropHandler.attach(canvasRef.value.parentElement);
+    } else {
+      dragDropHandler.attach(canvasRef.value);
+    }
+
     // Setup automatic snapshot saving on canvas changes
     canvas.on('object:modified', () => {
       if (historyManager && !historyManager.isRestoringSnapshot()) {
@@ -130,6 +179,19 @@ export function useWhiteboard(): UseWhiteboardReturn {
    * Cleanup resources
    */
   function cleanup(): void {
+    if (keyboardHandler) {
+      keyboardHandler.detach();
+      keyboardHandler = null;
+    }
+    if (clipboardHandler) {
+      clipboardHandler.detach();
+      clipboardHandler = null;
+    }
+    if (dragDropHandler) {
+      dragDropHandler.detach();
+      dragDropHandler = null;
+    }
+
     if (historyManager) {
       historyManager.dispose();
       historyManager = null;

@@ -318,6 +318,7 @@ apps/gui/src/renderer/stores/
 - [x] useWhiteboard composable 수정 (콜백 누락 및 설정 업데이트 로직 개선)
 - [x] E2E 테스트 지원 수정 (App.vue 및 WhiteboardCanvas 내부 객체 노출)
 - [x] E2E 테스트 업데이트 (EraserTool 동작 반영)
+- [x] E2E 테스트를 위한 누락된 핸들러 복원 (Keyboard, Clipboard, DragDrop)
 
 ### PR 9: 최종 정리
 - [ ] 문서 작성 (`packages/core-whiteboard/README.md`)
