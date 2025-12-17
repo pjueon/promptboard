@@ -8,8 +8,6 @@ export const useAutoSaveStore = defineStore('autoSave', () => {
   // State
   const autoSave = ref<boolean>(true);
   const autoSaveDebounceMs = ref<number>(1000); // milliseconds
-  const lastSaved = ref<Date | null>(null);
-  const isSaving = ref<boolean>(false);
 
   // Computed
   const isEnabled = computed(() => autoSave.value);
@@ -58,67 +56,6 @@ export const useAutoSaveStore = defineStore('autoSave', () => {
     }
   }
 
-  async function saveWhiteboardState(canvasData: object): Promise<boolean> {
-    if (!isElectron) {
-      return false;
-    }
-
-    isSaving.value = true;
-    try {
-      const success = await window.electronAPI.whiteboard.saveState(canvasData);
-      if (success) {
-        lastSaved.value = new Date();
-      }
-      return success;
-    } catch (error) {
-      console.error('Failed to save whiteboard state:', error);
-      return false;
-    } finally {
-      isSaving.value = false;
-    }
-  }
-
-  async function loadWhiteboardState() {
-    if (!isElectron) {
-      return null;
-    }
-
-    try {
-      const state = await window.electronAPI.whiteboard.loadState();
-      if (state) {
-        lastSaved.value = new Date(state.savedAt);
-      }
-      return state;
-    } catch (error) {
-      console.error('Failed to load whiteboard state:', error);
-      return null;
-    }
-  }
-
-  async function deleteWhiteboardState(): Promise<boolean> {
-    if (!isElectron) {
-      return false;
-    }
-
-    try {
-      const success = await window.electronAPI.whiteboard.deleteState();
-      if (success) {
-        lastSaved.value = null;
-      }
-      return success;
-    } catch (error) {
-      console.error('Failed to delete whiteboard state:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Perform auto-save immediately
-   */
-  async function performAutoSaveImmediately(canvasData: object): Promise<void> {
-    await saveWhiteboardState(canvasData);
-  }
-
   // Initialize settings asynchronously
   loadSettings();
 
@@ -126,17 +63,11 @@ export const useAutoSaveStore = defineStore('autoSave', () => {
     // State
     autoSave,
     autoSaveDebounceMs,
-    lastSaved,
-    isSaving,
     // Computed
     isEnabled,
     debounceMs,
     // Actions
     setAutoSave,
     setAutoSaveDebounce,
-    saveWhiteboardState,
-    loadWhiteboardState,
-    deleteWhiteboardState,
-    performAutoSaveImmediately,
   };
 });
