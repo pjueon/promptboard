@@ -317,7 +317,7 @@ apps/gui/src/renderer/stores/
 - [x] App.vue 초기 캔버스 사이징 레이스 컨디션 수정
 - [x] useWhiteboard composable 수정 (콜백 누락 및 설정 업데이트 로직 개선)
 - [x] E2E 테스트 지원 수정 (App.vue 및 WhiteboardCanvas 내부 객체 노출)
-- [ ] E2E 테스트 업데이트
+- [x] E2E 테스트 업데이트 (EraserTool 동작 반영)
 
 ### PR 9: 최종 정리
 - [ ] 문서 작성 (`packages/core-whiteboard/README.md`)
@@ -569,22 +569,6 @@ apps/gui/tests/e2e/
 
 ---
 
-## 참고 자료
-
-### 유사 프로젝트 분석
-- [Excalidraw](https://github.com/excalidraw/excalidraw): Canvas 추상화 참고
-- [tldraw](https://github.com/tldraw/tldraw): 툴 시스템 아키텍처 참고
-- [Fabric.js Examples](http://fabricjs.com/demos/): 베스트 프랙티스
-
-### 기술 스택
-- TypeScript 5.x
-- Fabric.js 5.x
-- Vite (빌드 도구)
-- Vitest (테스트)
-- Playwright (E2E)
-
----
-
 ### 최근 업데이트 (2025-12-17)
 
 ### 완료된 작업
@@ -624,10 +608,17 @@ apps/gui/tests/e2e/
 
 ### 다음 작업
 - **Phase 8: GUI 앱 마이그레이션**
-  - apps/gui에서 vue-whiteboard 사용하도록 전환
-  - Store 리팩토링 (UI 상태만 관리)
-  - 기존 WhiteboardCanvas.vue를 vue-whiteboard로 대체
-  - E2E 테스트 업데이트
+  - [x] apps/gui/package.json에 @promptboard/vue-whiteboard 의존성 추가
+  - [x] apps/gui에서 vue-whiteboard 사용하도록 전환
+  - [x] autoSaveStore 리펙토링
+  - [x] App.vue에 autoSaveStore 연동 및 props 전달
+  - [x] App.vue 및 autoSaveStore 관련 기존 코드 제거
+  - [x] App.vue 캔버스 리사이징 및 레이아웃 수정
+  - [x] App.vue에 toolbarStore 연동 (툴 선택 및 설정 동기화)
+  - [x] App.vue 초기 캔버스 사이징 레이스 컨디션 수정
+  - [x] useWhiteboard composable 수정 (콜백 누락 및 설정 업데이트 로직 개선)
+  - [x] E2E 테스트 지원 수정 (App.vue 및 WhiteboardCanvas 내부 객체 노출)
+  - [x] E2E 테스트 업데이트 (EraserTool 동작 반영)
 - **Phase 9: 최종 정리**
   - 문서 작성
   - API 문서 생성
@@ -638,4 +629,4 @@ apps/gui/tests/e2e/
 **작성일**: 2025-12-09
 **최종 업데이트**: 2025-12-17
 **작성자**: Claude Code Analysis
-**상태**: 진행중 (Phase 1-7 완료 ✅, Phase 8 시작 예정)
+**상태**: 진행중 (Phase 1-8 완료 ✅, Phase 9 시작 예정)
