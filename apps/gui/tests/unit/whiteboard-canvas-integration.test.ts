@@ -29,8 +29,8 @@ describe('WhiteboardCanvas - Toolbar Integration', () => {
 
   describe('Tool Selection', () => {
     it('should switch between different tools', async () => {
-      const tools = ['pen', 'select', 'eraser', 'line', 'rectangle', 'circle', 'text'] as const;
-      
+      const tools = ['pen', 'select', 'eraser', 'line', 'rectangle', 'ellipse', 'text'] as const;
+
       for (const tool of tools) {
         toolbarStore.setTool(tool);
         await wrapper.vm.$nextTick();

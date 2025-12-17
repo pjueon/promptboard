@@ -2,25 +2,20 @@
   <div class="whiteboard-container">
     <canvas
       id="whiteboard-canvas"
-      ref="canvasEl"
+      ref="canvasRef"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { onMounted, onBeforeUnmount, watch } from 'vue';
 import { fabric } from 'fabric';
-import '../fabric-ext/EditableLine';
-import { useToolbarStore } from '../stores/toolbarStore';
-import { useToastStore } from '../stores/toastStore';
-import { useAutoSaveStore } from '../stores/autoSaveStore';
-import { debounce } from '../utils/debounce';
-import type { CanvasState } from '../types/canvas';
-// Import from core-whiteboard package
+import { useWhiteboard } from '@promptboard/vue-whiteboard';
 import {
-  CanvasManager,
-  ToolManager,
-  HistoryManager,
+  KeyboardHandler,
+  ClipboardHandler,
+  DragDropHandler,
+  SelectTool,
   LineTool,
   ArrowTool,
   RectangleTool,
@@ -28,81 +23,43 @@ import {
   TextTool,
   PenTool,
   EraserTool,
-  SelectTool,
-  KeyboardHandler, 
-  ClipboardHandler,
-  DragDropHandler, 
-  registerEditableLine,
-  registerArrowObject,
-  type ToolConfig
+  ToolManager,
+  type ToolType,
 } from '@promptboard/core-whiteboard';
+import { useToolbarStore } from '../stores/toolbarStore';
+import { useToastStore } from '../stores/toastStore';
+import { useAutoSaveStore } from '../stores/autoSaveStore';
+import { debounce } from '../utils/debounce';
 
-interface FabricCanvasElement extends HTMLCanvasElement {
-  fabric?: fabric.Canvas;
-}
+// Stores
+const toolbarStore = useToolbarStore();
+const toastStore = useToastStore();
+const autoSaveStore = useAutoSaveStore();
 
-// Extended Fabric.js types for custom properties
-interface ExtendedFabricCanvas extends Omit<fabric.Canvas, '_activeObject' | 'backgroundColor' | 'backgroundImage'> {
-  _resizeHandler?: () => void;
-  _activeObject?: fabric.Object | null | undefined;
-  _hoveredTarget?: fabric.Object | null;
-  upperCanvasEl?: HTMLCanvasElement;
-  lowerCanvasEl?: HTMLCanvasElement;
-  backgroundImage?: fabric.Image | string | null;
-  backgroundColor?: string | fabric.Pattern | null;
-}
+// Whiteboard composable
+const whiteboard = useWhiteboard();
 
-interface FabricObjectPrototype {
-  controls?: {
-    mtr?: {
-      cursorStyleHandler?: () => string;
-    };
-  };
-}
-
-// Canvas element reference
-const canvasEl = ref<FabricCanvasElement | null>(null);
-
-// Fabric.js canvas instance
-let fabricCanvas: ExtendedFabricCanvas | null = null;
-
-// Core whiteboard managers
-let canvasManager: CanvasManager | null = null;
-let toolManager: ToolManager | null = null;
-let historyManager: HistoryManager | null = null;
-let selectTool: SelectTool | null = null; // Keep reference for copySelectedRegion
+// Expose canvasRef for the composable to use
+const { canvasRef, isReady, canUndo, canRedo } = whiteboard;
 
 // Handlers
 let keyboardHandler: KeyboardHandler | null = null;
 let clipboardHandler: ClipboardHandler | null = null;
 let dragDropHandler: DragDropHandler | null = null;
-
-// Reactive state for undo/redo buttons
-const canUndoRef = ref(false);
-const canRedoRef = ref(false);
-// Loading state to prevent race conditions during testing
-const isCanvasLoading = ref(true);
-
-// Shape drawing state
-let isDrawing = false;
-
-// Mouse event handlers for shape drawing
-let mouseDownHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
-let mouseMoveHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
-let mouseUpHandler: ((e: fabric.IEvent<Event>) => void) | null = null;
-
-// Get stores
-const toolbarStore = useToolbarStore();
-const toastStore = useToastStore();
-const autoSaveStore = useAutoSaveStore();
-
-// Auto-save cleanup function
-let cleanupAutoSave: (() => void) | null = null;
 let debouncedAutoSave: ReturnType<typeof debounce> | null = null;
 
-// Update canvas cursor based on current tool
+// SelectTool reference for copySelectedRegion
+let selectTool: SelectTool | null = null;
+
+// Store reference to toolManager for direct config updates
+let toolManagerRef: ToolManager | null = null;
+
+/**
+ * Update canvas cursor based on current tool
+ */
 function updateCanvasCursor() {
-  if (!fabricCanvas) return;
+  const canvas = whiteboard.getCanvas();
+  if (!canvas) return;
 
   const tool = toolbarStore.currentTool;
   let cursor = 'default';
@@ -123,56 +80,42 @@ function updateCanvasCursor() {
     case 'eraser':
       // Eraser cursor is managed by EraserTool
       return;
-    case 'select':
+    case 'select': {
       cursor = 'default';
       // Set move cursor when hovering over objects
-      fabricCanvas.defaultCursor = cursor;
-      fabricCanvas.hoverCursor = 'move';
+      canvas.defaultCursor = cursor;
+      canvas.hoverCursor = 'move';
 
       // Immediately update the actual DOM cursor style
-      if (fabricCanvas.upperCanvasEl) {
-        fabricCanvas.upperCanvasEl.style.cursor = cursor;
+      const upperCanvasEl = (canvas as fabric.Canvas & { upperCanvasEl?: HTMLCanvasElement })
+        .upperCanvasEl;
+      if (upperCanvasEl) {
+        upperCanvasEl.style.cursor = cursor;
       }
       return;
+    }
     default:
       cursor = 'default';
       break;
   }
 
-  fabricCanvas.defaultCursor = cursor;
-  fabricCanvas.hoverCursor = cursor;
+  canvas.defaultCursor = cursor;
+  // Don't set hoverCursor for drawing tools to allow object controls to show their cursors
+  // hoverCursor will be managed by Fabric.js for object interactions
 
   // For drawing mode (pen and eraser), also set freeDrawingCursor
-  if (fabricCanvas.isDrawingMode) {
-    fabricCanvas.freeDrawingCursor = cursor;
+  if (canvas.isDrawingMode) {
+    canvas.freeDrawingCursor = cursor;
   }
 
   // Immediately update the actual DOM cursor style (without waiting for mouse move)
-  if (fabricCanvas.upperCanvasEl) {
-    fabricCanvas.upperCanvasEl.style.cursor = cursor;
+  const upperCanvasEl = (canvas as fabric.Canvas & { upperCanvasEl?: HTMLCanvasElement })
+    .upperCanvasEl;
+  if (upperCanvasEl) {
+    upperCanvasEl.style.cursor = cursor;
   }
 
-  fabricCanvas.renderAll();
-}
-
-/**
- * Clean up shape drawing event listeners
- */
-function cleanupShapeEvents() {
-  if (!fabricCanvas) return;
-  
-  if (mouseDownHandler) {
-    fabricCanvas.off('mouse:down', mouseDownHandler);
-    mouseDownHandler = null;
-  }
-  if (mouseMoveHandler) {
-    fabricCanvas.off('mouse:move', mouseMoveHandler);
-    mouseMoveHandler = null;
-  }
-  if (mouseUpHandler) {
-    fabricCanvas.off('mouse:up', mouseUpHandler);
-    mouseUpHandler = null;
-  }
+  canvas.renderAll();
 }
 
 /**
@@ -180,67 +123,70 @@ function cleanupShapeEvents() {
  */
 function copySelectedRegion() {
   const selectionRect = selectTool?.getSelectionRect();
-  if (!selectionRect || !fabricCanvas) return;
-  
+  const canvas = whiteboard.getCanvas();
+  if (!selectionRect || !canvas) return;
+
   const rect = selectionRect;
   const left = rect.left!;
   const top = rect.top!;
   const width = rect.width!;
   const height = rect.height!;
-  
-  // Skip if selection is too small (less than 1x1 pixel)
+
+  // Skip if selection is too small
   if (width < 1 || height < 1) {
     toastStore.warning('Selection is too small to copy');
     return;
   }
-  
+
   try {
     // Temporarily hide the selection rectangle
     const wasVisible = selectionRect.visible;
     selectionRect.set({ visible: false });
-    fabricCanvas.renderAll();
-    
-    // Use setTimeout to ensure render completes before capturing
+    canvas.renderAll();
+
     setTimeout(() => {
       // Create a temporary canvas to capture the selected region
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = width;
       tempCanvas.height = height;
       const tempCtx = tempCanvas.getContext('2d');
-      
+
       if (!tempCtx) {
-        // Restore selection rectangle visibility
         selectionRect!.set({ visible: wasVisible });
-        fabricCanvas!.renderAll();
+        canvas!.renderAll();
         toastStore.error('Failed to copy region');
         return;
       }
-      
+
       // Get the main canvas element
-      const mainCanvas = fabricCanvas!.getElement();
-      
+      const mainCanvas = canvas!.getElement();
+
       // Draw the selected region onto the temporary canvas
       tempCtx.drawImage(
         mainCanvas,
-        left, top, width, height,  // Source rectangle
-        0, 0, width, height        // Destination rectangle
+        left,
+        top,
+        width,
+        height, // Source rectangle
+        0,
+        0,
+        width,
+        height // Destination rectangle
       );
-      
+
       // Restore selection rectangle visibility
       selectionRect!.set({ visible: wasVisible });
-      fabricCanvas!.renderAll();
-      
+      canvas!.renderAll();
+
       // Convert to blob and copy to clipboard
       tempCanvas.toBlob(async (blob) => {
         if (!blob) {
           toastStore.error('Failed to copy region');
           return;
         }
-        
+
         try {
-          await navigator.clipboard.write([
-            new ClipboardItem({ 'image/png': blob })
-          ]);
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
           toastStore.success('Region copied to clipboard');
         } catch (err) {
           console.error('Failed to copy to clipboard:', err);
@@ -255,26 +201,101 @@ function copySelectedRegion() {
 }
 
 /**
+ * Flatten all objects to canvas background
+ */
+function flattenCanvasToBackground(callback?: () => void) {
+  const canvas = whiteboard.getCanvas();
+  if (!canvas) return;
+
+  // Skip in test environment if fabric.Image is not available
+  if (!fabric.Image || typeof fabric.Image.fromURL !== 'function') {
+    return;
+  }
+
+  // Get current canvas as image (includes background + all objects)
+  const dataUrl = canvas.toDataURL({
+    format: 'png',
+    quality: 1,
+  });
+
+  // Store objects before removal
+  const objectsToRemove = canvas.getObjects().slice();
+
+  // Clear all objects
+  objectsToRemove.forEach((obj) => {
+    canvas.remove(obj);
+  });
+
+  // Set the flattened image as background
+  fabric.Image.fromURL(dataUrl, (img) => {
+    if (!canvas) return;
+
+    // Remove any objects that might have been added during async operation
+    const currentObjects = canvas.getObjects().slice();
+
+    // Check if toolManager is drawing (prevent removing objects being drawn)
+    const managers = whiteboard.getManagers();
+    if (managers.toolManager?.isDrawing()) {
+      // Just set the background image without removing objects
+      canvas.setBackgroundImage(
+        img,
+        () => {
+          canvas.backgroundColor = null;
+          canvas.renderAll();
+        },
+        {
+          scaleX: canvas.width! / img.width!,
+          scaleY: canvas.height! / img.height!,
+        }
+      );
+      return;
+    }
+
+    currentObjects.forEach((obj) => {
+      canvas.remove(obj);
+    });
+
+    canvas.setBackgroundImage(
+      img,
+      () => {
+        canvas.backgroundColor = null;
+        canvas.renderAll();
+
+        // Call callback after rendering is complete
+        if (callback) {
+          callback();
+        }
+      },
+      {
+        scaleX: canvas.width! / img.width!,
+        scaleY: canvas.height! / img.height!,
+      }
+    );
+  });
+}
+
+/**
  * Delete the currently selected region
  */
 function deleteSelectedRegion() {
   const selectionRect = selectTool?.getSelectionRect();
-  if (!selectionRect || !fabricCanvas) return;
+  const canvas = whiteboard.getCanvas();
+  if (!selectionRect || !canvas) return;
 
   const rect = selectionRect;
   const left = rect.left!;
   const top = rect.top!;
   const width = rect.width!;
   const height = rect.height!;
-  
-  // Skip if selection is too small (less than 1x1 pixel)
+
+  // Skip if selection is too small
   if (width < 1 || height < 1) {
     // Just remove the selection rectangle
     selectTool?.removeSelectionRect();
-    fabricCanvas.renderAll();
+    canvas.renderAll();
     return;
   }
-  
+
   // Create a white rectangle to cover the selected area
   const whiteRect = new fabric.Rect({
     left: left,
@@ -285,645 +306,62 @@ function deleteSelectedRegion() {
     selectable: false,
     evented: false,
   });
-  
+
   // Remove selection rectangle first
   selectTool?.removeSelectionRect();
 
   // Add white rectangle
-  fabricCanvas.add(whiteRect);
-  fabricCanvas.renderAll();
-  
+  canvas.add(whiteRect);
+  canvas.renderAll();
+
   // Flatten to background and save snapshot after completion
   setTimeout(() => {
     flattenCanvasToBackground(() => {
-      saveCanvasSnapshot();
+      const managers = whiteboard.getManagers();
+      if (managers.historyManager) {
+        managers.historyManager.saveSnapshot();
+      }
       toastStore.success('Selected region deleted');
     });
   }, 10);
 }
 
 /**
- * Save canvas snapshot to history
- */
-function saveCanvasSnapshot() {
-  if (!historyManager) return;
-
-  // Don't save during restoration (HistoryManager handles this check)
-  if (historyManager.isRestoringSnapshot()) {
-    return;
-  }
-
-  historyManager.saveSnapshot();
-}
-
-/**
- * Restore canvas from snapshot (legacy - kept for manual restoration)
- */
-function restoreSnapshot(canvasState: CanvasState) {
-  if (!fabricCanvas) return;
-
-  // Clear selection before clearing canvas
-  fabricCanvas.discardActiveObject();
-
-  // Clear canvas completely first to prevent background accumulation
-  fabricCanvas.clear();
-
-  // Force clear internal selection state
-  fabricCanvas._activeObject = null;
-  fabricCanvas._hoveredTarget = null;
-
-  fabricCanvas.backgroundColor = '#ffffff';
-  fabricCanvas.backgroundImage = null;
-
-  fabricCanvas.loadFromJSON(canvasState, () => {
-    // Ensure white background if no background image
-    if (!fabricCanvas!.backgroundImage) {
-      fabricCanvas!.backgroundColor = '#ffffff';
-    }
-
-    // Re-render to ensure everything is drawn correctly
-    fabricCanvas!.renderAll();
-  });
-}
-/**
- * Flatten all objects to canvas background
- */
-function flattenCanvasToBackground(callback?: () => void) {
-  if (!fabricCanvas) return;
-
-  // Skip in test environment if fabric.Image is not available
-  if (!fabric.Image || typeof fabric.Image.fromURL !== 'function') {
-    return;
-  }
-
-  // Store objects before removal
-  const objectsToRemove = fabricCanvas.getObjects().slice();
-
-  // Get current canvas as image (includes background + all objects)
-  const dataUrl = fabricCanvas.toDataURL({
-    format: 'png',
-    quality: 1,
-  });
-
-  // Clear all objects
-  objectsToRemove.forEach((obj) => {
-    fabricCanvas!.remove(obj);
-  });
-
-  // Set the flattened image as background, replacing any previous background
-  fabric.Image.fromURL(dataUrl, (img) => {
-    if (!fabricCanvas) return;
-
-    // Remove any objects that might have been added during async operation
-    const currentObjects = fabricCanvas.getObjects().slice();
-
-    // If user started drawing a new shape, don't remove it!
-    if (isDrawing || toolManager?.isDrawing()) {
-      // Just set the background image without removing objects
-      fabricCanvas.setBackgroundImage(img, () => {
-        fabricCanvas!.backgroundColor = null;
-        fabricCanvas!.renderAll();
-      }, {
-        scaleX: fabricCanvas!.width! / img.width!,
-        scaleY: fabricCanvas!.height! / img.height!,
-      });
-      return;
-    }
-
-    currentObjects.forEach((obj) => {
-      fabricCanvas!.remove(obj);
-    });
-
-    fabricCanvas.setBackgroundImage(img, () => {
-      fabricCanvas!.backgroundColor = null; // Clear background color
-      fabricCanvas!.renderAll();
-
-      // Call callback after rendering is complete
-      if (callback) {
-        callback();
-      }
-    }, {
-      scaleX: fabricCanvas!.width! / img.width!,
-      scaleY: fabricCanvas!.height! / img.height!,
-    });
-  });
-}
-
-/**
- * Apply tool state to canvas
- */
-function applyToolState(tool: typeof toolbarStore.currentTool) {
-  if (!fabricCanvas) return;
-
-  // Clean up any existing shape drawing handlers
-  cleanupShapeEvents();
-
-  // Disable all drawing modes first
-  fabricCanvas.isDrawingMode = false;
-  fabricCanvas.selection = true;
-  
-  // Reset brush to normal state
-  if (fabricCanvas.freeDrawingBrush) {
-    fabricCanvas.freeDrawingBrush.color = toolbarStore.color;
-  }
-
-  // Deactivate any active toolManager tool when switching to a non-toolManager tool
-  const toolManagerTools = ['line', 'arrow', 'rectangle', 'ellipse', 'text', 'eraser', 'select']; // List of tools managed by toolManager
-  if (toolManager && toolManager.getActiveToolType() && !toolManagerTools.includes(tool)) {
-    // Get the active tool and manually deactivate it
-    const activeToolType = toolManager.getActiveToolType();
-    if (activeToolType) {
-      const activeTool = toolManager['tools'].get(activeToolType);
-      if (activeTool) {
-        activeTool.deactivate();
-      }
-    }
-  }
-
-  switch (tool) {
-    case 'pen':
-      // Use refactored PenTool from core-whiteboard
-      if (toolManager) {
-        toolManager.activateTool('pen');
-      }
-      break;
-    case 'eraser':
-      // Use refactored EraserTool from core-whiteboard
-      if (toolManager) {
-        toolManager.activateTool('eraser');
-      }
-      break;
-    case 'select':
-      // Use refactored SelectTool from core-whiteboard
-      if (toolManager) {
-        toolManager.activateTool('select');
-      }
-      break;
-    case 'line':
-      // Use refactored LineTool from core-whiteboard
-      if (toolManager) {
-        toolManager.activateTool('line');
-      }
-      break;
-    case 'arrow':
-      // Use refactored ArrowTool from core-whiteboard
-      if (toolManager) {
-        toolManager.activateTool('arrow');
-      }
-      break;
-    case 'rectangle':
-      // Use refactored RectangleTool from core-whiteboard
-      if (toolManager) {
-        toolManager.activateTool('rectangle');
-      }
-      break;
-    case 'ellipse':
-      // Use refactored EllipseTool from core-whiteboard
-      if (toolManager) {
-        toolManager.activateTool('ellipse');
-      }
-      break;
-    case 'text':
-      // Use refactored TextTool from core-whiteboard
-      if (toolManager) {
-        toolManager.activateTool('text');
-      }
-      break;
-  }
-}
-
-// Watch for tool changes
-watch(() => toolbarStore.currentTool, (newTool) => {
-  applyToolState(newTool);
-  updateCanvasCursor();
-});
-
-// Watch for stroke width changes (for eraser cursor)
-watch(() => toolbarStore.strokeWidth, (newWidth) => {
-  if (!fabricCanvas || !fabricCanvas.freeDrawingBrush) return;
-  fabricCanvas.freeDrawingBrush.width = newWidth;
-
-  // Update toolManager config (including EraserTool which updates cursor automatically)
-  if (toolManager) {
-    toolManager.updateConfig({
-      color: toolbarStore.color,
-      strokeWidth: newWidth,
-      fontSize: toolbarStore.fontSize
-    });
-  }
-});
-
-// Watch for color changes
-watch(() => toolbarStore.color, (newColor) => {
-  if (!fabricCanvas || !fabricCanvas.freeDrawingBrush) return;
-  // Don't change color when eraser is active
-  if (toolbarStore.currentTool !== 'eraser') {
-    fabricCanvas.freeDrawingBrush.color = newColor;
-  }
-
-  // Update toolManager config
-  if (toolManager) {
-    toolManager.updateConfig({
-      color: newColor,
-      strokeWidth: toolbarStore.strokeWidth,
-      fontSize: toolbarStore.fontSize
-    });
-  }
-});
-
-// Watch for font size changes
-watch(() => toolbarStore.fontSize, (newFontSize) => {
-  // Update toolManager config
-  if (toolManager) {
-    toolManager.updateConfig({
-      color: toolbarStore.color,
-      strokeWidth: toolbarStore.strokeWidth,
-      fontSize: newFontSize
-    });
-  }
-});
-
-
-onMounted(() => {
-  if (!canvasEl.value) return;
-
-  // Initialize core whiteboard managers
-  registerEditableLine(); // Register EditableLine for deserialization
-  registerArrowObject(); // Register ArrowObject for deserialization
-  canvasManager = new CanvasManager(canvasEl.value, {
-    width: window.innerWidth,
-    height: window.innerHeight - 56,
-    backgroundColor: '#ffffff'
-  });
-
-  // Get the single canvas instance from the manager
-  fabricCanvas = canvasManager.getCanvas() as ExtendedFabricCanvas;
-
-  // Store fabricCanvas reference on canvas element for main process access
-  canvasEl.value.fabric = fabricCanvas as fabric.Canvas;
-  
-  // Expose fabricCanvas globally for E2E testing
-  (window as { fabricCanvas?: ExtendedFabricCanvas }).fabricCanvas = fabricCanvas;
-  
-  // Override default cursor handler to set rotation cursor (only in non-test environment)
-  // Using Lucide RotateCw icon as SVG cursor
-  if (fabric.Object?.prototype) {
-    const fabricObjectPrototype = fabric.Object.prototype as unknown as FabricObjectPrototype;
-    if (fabricObjectPrototype.controls?.mtr) {
-      const rotateCwSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
-      const rotateBase64 = btoa(rotateCwSvg);
-      const rotateCursor = `url('data:image/svg+xml;base64,${rotateBase64}') 10 10, auto`;
-
-      fabricObjectPrototype.controls.mtr.cursorStyleHandler = () => {
-        return rotateCursor;
-      };
-    }
-  }
-
-  // Set willReadFrequently on Fabric.js internal canvases to suppress warnings
-  // This is needed because Fabric.js reads pixel data frequently for hit detection
-  try {
-    const lowerCanvas = fabricCanvas.lowerCanvasEl;
-    const upperCanvas = fabricCanvas.upperCanvasEl;
-    if (lowerCanvas) {
-      lowerCanvas.getContext('2d', { willReadFrequently: true });
-    }
-    if (upperCanvas) {
-      upperCanvas.getContext('2d', { willReadFrequently: true });
-    }
-  } catch (e) {
-    // Ignore if context already created
-  }
-
-  // Configure drawing brush from store
-  if (fabricCanvas.freeDrawingBrush) {
-    fabricCanvas.freeDrawingBrush.color = toolbarStore.color;
-    fabricCanvas.freeDrawingBrush.width = toolbarStore.strokeWidth;
-  }
-
-  const toolConfig: ToolConfig = {
-    color: toolbarStore.color,
-    strokeWidth: toolbarStore.strokeWidth,
-    fontSize: toolbarStore.fontSize
-  };
-
-  toolManager = new ToolManager(fabricCanvas as fabric.Canvas, toolConfig);
-
-  // Initialize HistoryManager
-  historyManager = new HistoryManager(canvasManager, {
-    maxHistory: 50,
-    propertiesToInclude: ['arrowId', 'selectable', 'evented']
-  });
-
-  // Expose historyManager and state for E2E testing (Moved after initialization)
-  window.historyManager = historyManager;
-  window.undoRedoState = {
-    canUndo: canUndoRef,
-    canRedo: canRedoRef
-  };
-  // Expose loading state for E2E testing
-  window.isCanvasLoading = isCanvasLoading;
-
-  // Setup event listeners for UI state updates
-  historyManager.on('change', (event) => {
-    canUndoRef.value = event.canUndo;
-    canRedoRef.value = event.canRedo;
-  });
-
-  // Helper function to restore selection state after undo/redo
-  const restoreSelectionAfterHistoryNav = () => {
-    if (!fabricCanvas) return;
-    
-    // Find all objects that are selectable (in this app, only active objects are selectable)
-    const selectableObjects = fabricCanvas.getObjects().filter(obj => obj.selectable);
-    
-    if (selectableObjects.length > 0) {
-      if (selectableObjects.length === 1) {
-        fabricCanvas.setActiveObject(selectableObjects[0]);
-      } else {
-        const selection = new fabric.ActiveSelection(selectableObjects, {
-          canvas: fabricCanvas
-        });
-        fabricCanvas.setActiveObject(selection);
-      }
-      fabricCanvas.renderAll();
-    }
-  };
-
-  // Reconnect arrows after undo/redo
-  // Events are emitted after loadFromJSON callback completes
-  historyManager.on('undo', () => {
-    restoreSelectionAfterHistoryNav();
-  });
-  historyManager.on('redo', () => {
-    restoreSelectionAfterHistoryNav();
-  });
-
-  // Register refactored tools
-  const lineTool = new LineTool(
-    fabricCanvas as fabric.Canvas,
-    toolConfig,
-    () => saveCanvasSnapshot(),
-    () => toolbarStore.setTool('select') // Switch back to select mode after drawing
-  );
-  toolManager.registerTool('line', lineTool);
-
-  const rectangleTool = new RectangleTool(
-    fabricCanvas as fabric.Canvas,
-    toolConfig,
-    () => saveCanvasSnapshot(),
-    () => toolbarStore.setTool('select')
-  );
-  toolManager.registerTool('rectangle', rectangleTool);
-
-  const ellipseTool = new EllipseTool(
-    fabricCanvas as fabric.Canvas,
-    toolConfig,
-    () => saveCanvasSnapshot(),
-    () => toolbarStore.setTool('select')
-  );
-  toolManager.registerTool('ellipse', ellipseTool);
-
-  const arrowTool = new ArrowTool(
-    fabricCanvas as fabric.Canvas,
-    toolConfig,
-    () => saveCanvasSnapshot(),
-    () => toolbarStore.setTool('select')
-  );
-  toolManager.registerTool('arrow', arrowTool);
-
-  const textTool = new TextTool(
-    fabricCanvas as fabric.Canvas,
-    toolConfig,
-    () => saveCanvasSnapshot()
-    // Note: No onComplete callback - user manually switches when done typing
-  );
-  toolManager.registerTool('text', textTool);
-
-  const penTool = new PenTool(
-    fabricCanvas as fabric.Canvas,
-    toolConfig
-    // Note: No callbacks - pen uses path:created event for snapshot saving
-  );
-  toolManager.registerTool('pen', penTool);
-
-  const eraserTool = new EraserTool(
-    fabricCanvas as fabric.Canvas,
-    toolConfig
-    // Note: No callbacks - eraser uses path:created event for snapshot saving
-  );
-  toolManager.registerTool('eraser', eraserTool);
-
-  selectTool = new SelectTool(
-    fabricCanvas as fabric.Canvas,
-    toolConfig
-    // Note: No callbacks - select tool doesn't auto-complete or save snapshots
-  );
-  toolManager.registerTool('select', selectTool);
-
-  // Apply initial tool state
-  applyToolState(toolbarStore.currentTool);
-  
-  // Set initial cursor
-  updateCanvasCursor();
-  
-  // Register selection:cleared event to save snapshot on deselect
-fabricCanvas.on('selection:cleared', (e: fabric.IEvent<Event> & { deselected?: fabric.Object[] }) => {
-    if (historyManager?.isRestoringSnapshot()) return; // Skip during undo/redo
-    if (isDrawing || toolManager?.isDrawing()) return; // Skip while user is actively drawing a new shape
-
-    const deselected = e.deselected;
-    if (deselected && deselected.length > 0) {
-      // Make deselected objects non-selectable to prevent interference
-      // This ensures only the last modified object remains interactive
-      deselected.forEach(obj => {
-        obj.set({
-          selectable: false,
-          evented: false
-        });
-      });
-      fabricCanvas!.renderAll();
-
-      // Save snapshot on deselection
-      saveCanvasSnapshot();
-    }
-  });
-
-  // Register object:modified event for saving snapshots on resize/rotate/move
-  fabricCanvas.on('object:modified', () => {
-    if (!historyManager?.isRestoringSnapshot()) {
-      // Delay snapshot to ensure canvas is fully rendered
-      setTimeout(() => {
-        saveCanvasSnapshot();
-      }, 50);
-    }
-  });
-
-  // Register path:created event for pen and eraser tool - flatten immediately
-  fabricCanvas.on('path:created', (e: fabric.IEvent<Event> & { path?: fabric.Path }) => {
-    // Apply strokeUniform to the created path to prevent stroke width scaling
-    if (e.path) {
-      e.path.set({ strokeUniform: true });
-    }
-
-    // Flatten strokes immediately (no selection) and save snapshot after completion
-    setTimeout(() => {
-      flattenCanvasToBackground(() => {
-        saveCanvasSnapshot();
-      });
-    }, 50);
-  });
-  
-  // Save initial empty canvas snapshot first
-  // This ensures we can undo back to a blank canvas
-  saveCanvasSnapshot();
-
-  // Load saved state (if exists)
-  loadCanvasState().then(() => {
-    // Save snapshot after loading auto-save state (if any was loaded)
-    // This creates a second snapshot with the loaded state
-    saveCanvasSnapshot();
-
-    // Setup event-driven auto-save
-    setupAutoSave();
-    
-    // Mark loading as complete
-    isCanvasLoading.value = false;
-  });
-
-  // Initialize Handlers
-  const keyboardHandler = new KeyboardHandler(canvasManager, historyManager, toolManager, {
-    onSave: () => {
-      // Emit event to parent (App.vue) to handle save
-      const event = new CustomEvent('save-canvas-shortcut');
-      window.dispatchEvent(event);
-    },
-    onBrushSizeChange: (delta) => {
-      const currentWidth = toolbarStore.strokeWidth;
-      const newWidth = Math.max(1, Math.min(20, currentWidth + delta));
-      toolbarStore.setStrokeWidth(newWidth);
-      if (toolbarStore.currentTool === 'eraser') {
-        updateCanvasCursor();
-      }
-    },
-    onCopy: () => {
-      // Only copy region if select tool is active and a region is selected
-      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
-        copySelectedRegion();
-      }
-    },
-    onDelete: () => {
-      // Prioritize deleting selection region
-      if (toolbarStore.currentTool === 'select' && selectTool?.getSelectionRect()) {
-        deleteSelectedRegion(); // This deletes the selection overlay and flattens
-      } else {
-        // Fallback: Delete currently active object(s)
-        if (fabricCanvas) {
-          const activeObject = fabricCanvas.getActiveObject();
-          if (activeObject) {
-            if (activeObject.type === 'activeSelection') {
-              (activeObject as fabric.ActiveSelection).getObjects().forEach(obj => {
-                fabricCanvas?.remove(obj);
-              });
-            } else {
-              fabricCanvas.remove(activeObject);
-            }
-            fabricCanvas.discardActiveObject();
-            fabricCanvas.renderAll();
-            saveCanvasSnapshot(); // Save snapshot after deletion
-          }
-        }
-      }
-    }
-  });
-  keyboardHandler.attach();
-  // If Electron API is not available (e.g., web environment in dev) use document listener
-  if (window.electronAPI?.on) { // Check if window.electronAPI is defined and has 'on' property
-    // Electron's main process will forward keydown events
-    window.electronAPI.on('keydown', keyboardHandler.handleKeydown);
-  }
-  // No else block needed here, as keyboardHandler.attach() already adds document.addEventListener if not in Electron.
-
-  const clipboardHandler = new ClipboardHandler(canvasManager, historyManager, {
-    onPasteImage: () => toastStore.success('Image pasted from clipboard'),
-    onError: (error) => toastStore.error(`Failed to paste image: ${error.message}`)
-  });
-  clipboardHandler.attach();
-  // Removed window.addEventListener('paste', handlePaste);
-
-  const dragDropHandler = new DragDropHandler(canvasManager, historyManager, {
-    onDropImage: () => toastStore.success('Image added from file'),
-    onError: (error) => toastStore.error(`Failed to add image: ${error.message}`)
-  });
-  if (canvasEl.value) {
-    dragDropHandler.attach(canvasEl.value);
-  }
-  // Removed canvasEl.value.addEventListener('dragover', handleDragOver);
-  // Removed canvasEl.value.addEventListener('drop', handleDrop);
-
-  // Handle window resize
-  const handleResize = () => {
-    if (!canvasManager) return;
-    canvasManager.resize(
-      window.innerWidth,
-      window.innerHeight - 56 // Subtract toolbar height
-    );
-  };
-  window.addEventListener('resize', handleResize);
-
-  // Store handlers for cleanup
-  fabricCanvas._resizeHandler = handleResize; // Still need this for cleanup
-  // Replaced individual handlers with class instances
-});
-
-/**
- * Clear all objects from canvas
- * Exposed to parent component
+ * Clear the canvas completely
  */
 function clearCanvas() {
-  if (!fabricCanvas) return;
+  const canvas = whiteboard.getCanvas();
+  if (!canvas) return;
 
-  // First flatten any objects to background (this handles selection state)
-  // Then clear everything including the background
-  flattenCanvasToBackground(() => {
-    if (!fabricCanvas) return;
+  // Get managers
+  const managers = whiteboard.getManagers();
 
-    // Now clear the entire canvas including background
-    fabricCanvas.clear();
-    fabricCanvas.backgroundColor = '#ffffff';
+  // Clear everything and reset background (but keep undo/redo history)
+  canvas.clear();
+  canvas.backgroundColor = '#ffffff';
+  canvas.renderAll();
 
-    // Force clear internal selection state (fixes #22)
-    fabricCanvas._activeObject = null;
-    fabricCanvas._hoveredTarget = null;
-
-    fabricCanvas.renderAll();
-
-    // Save snapshot after clearing
-    saveCanvasSnapshot();
-  });
+  // Save snapshot after clearing so undo can restore previous state
+  if (managers.historyManager) {
+    managers.historyManager.saveSnapshot();
+  }
 }
 
 /**
- * Get canvas as Base64 image
- * Exposed to parent component and IPC
- * @param format - Image format ('png' or 'jpeg')
- * @returns Base64 encoded image (without data URL prefix) or null if canvas not initialized
+ * Get canvas image as base64
  */
 function getCanvasImage(format: 'png' | 'jpeg' = 'png'): string | null {
-  if (!fabricCanvas) {
-    return null;
-  }
-  
+  const canvas = whiteboard.getCanvas();
+  if (!canvas) return null;
+
   try {
-    // Export canvas as data URL
-    const dataUrl = fabricCanvas.toDataURL({
+    const dataUrl = canvas.toDataURL({
       format: format,
       quality: format === 'jpeg' ? 0.95 : 1,
     });
-    
-    // Remove data URL prefix (e.g., "data:image/png;base64," or "data:image/jpeg;base64,")
-    const base64 = dataUrl.replace(/^data:image\/(png|jpeg);base64,/, '');
-    return base64;
+
+    // Remove data URL prefix
+    return dataUrl.replace(/^data:image\/(png|jpeg);base64,/, '');
   } catch (error) {
     console.error('Error converting canvas to image:', error);
     return null;
@@ -931,127 +369,424 @@ function getCanvasImage(format: 'png' | 'jpeg' = 'png'): string | null {
 }
 
 /**
- * Setup event-driven auto-save
+ * Setup auto-save functionality
  */
 function setupAutoSave() {
-  if (!historyManager || !canvasManager || !autoSaveStore.isEnabled) return;
+  if (!autoSaveStore.isEnabled) return;
 
   // Create debounced save function
   debouncedAutoSave = debounce(async () => {
-    if (autoSaveStore.isEnabled && canvasManager) {
-      const canvasData = canvasManager.toJSON(['arrowId', 'selectable', 'evented']);
+    if (autoSaveStore.isEnabled && isReady.value) {
+      const state = await whiteboard.saveState();
+      const canvasData = JSON.parse(state);
       await autoSaveStore.saveWhiteboardState(canvasData);
     }
   }, autoSaveStore.debounceMs);
 
-  // Subscribe to history changes for auto-save
-  const unsubscribe = historyManager.on('snapshot', () => {
+  // Subscribe to history changes
+  whiteboard.onHistoryChange(() => {
     if (autoSaveStore.isEnabled && debouncedAutoSave) {
       debouncedAutoSave();
     }
   });
-
-  // Setup cleanup function
-  cleanupAutoSave = () => {
-    if (debouncedAutoSave) {
-      debouncedAutoSave.cancel();
-      debouncedAutoSave = null;
-    }
-    unsubscribe();
-  };
 }
 
 /**
  * Load canvas state from auto-save
  */
 async function loadCanvasState() {
-  if (!fabricCanvas) return;
-
-  try {
-    const state = await autoSaveStore.loadWhiteboardState();
-    if (state && state.canvasData) {
-      // Wait for loadFromJSON to complete before resolving
-      return new Promise<void>((resolve) => {
-        restoreSnapshot(state.canvasData);
-        resolve();
-      });
-    }
-  } catch (error) {
-    console.error('Failed to load canvas state:', error);
+  const state = await autoSaveStore.loadWhiteboardState();
+  if (state && state.canvasData) {
+    const stateString = JSON.stringify(state.canvasData);
+    await whiteboard.loadState(stateString);
   }
 }
 
-// Watch auto-save settings changes
-watch(() => autoSaveStore.isEnabled, (enabled) => {
-  if (enabled) {
+/**
+ * Initialize the whiteboard
+ */
+async function initializeWhiteboard() {
+  try {
+    // Override default rotation cursor handler to set custom rotation cursor
+    // Using Lucide RotateCw icon as SVG cursor
+    if (fabric.Object?.prototype) {
+      const fabricObjectPrototype = fabric.Object.prototype as unknown as {
+        controls?: {
+          mtr?: {
+            cursorStyleHandler?: () => string;
+          };
+        };
+      };
+      if (fabricObjectPrototype.controls?.mtr) {
+        const rotateCwSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`;
+        const rotateBase64 = btoa(rotateCwSvg);
+        const rotateCursor = `url('data:image/svg+xml;base64,${rotateBase64}') 10 10, auto`;
+
+        fabricObjectPrototype.controls.mtr.cursorStyleHandler = () => {
+          return rotateCursor;
+        };
+      }
+    }
+
+    // Initialize the whiteboard
+    await whiteboard.initialize({
+      width: window.innerWidth,
+      height: window.innerHeight - 32,
+      backgroundColor: '#ffffff',
+    });
+
+    const canvas = whiteboard.getCanvas();
+    if (!canvas) return;
+
+    // Get managers for handlers
+    const managers = whiteboard.getManagers();
+    if (!managers.canvasManager || !managers.historyManager || !managers.toolManager) {
+      throw new Error('Managers not initialized');
+    }
+
+    // Re-register tools with callbacks for auto-switch and snapshot saving
+    const toolConfig = whiteboard.getToolOptions();
+    const saveSnapshot = () => {
+      // Save snapshot after shape is drawn and selected
+      if (managers.historyManager && !managers.historyManager.isRestoringSnapshot()) {
+        managers.historyManager.saveSnapshot();
+      }
+    };
+    const switchToSelect = () => {
+      toolbarStore.setTool('select');
+    };
+
+    managers.toolManager.registerTool(
+      'line',
+      new LineTool(canvas, toolConfig, saveSnapshot, switchToSelect)
+    );
+    managers.toolManager.registerTool(
+      'arrow',
+      new ArrowTool(canvas, toolConfig, saveSnapshot, switchToSelect)
+    );
+    managers.toolManager.registerTool(
+      'rectangle',
+      new RectangleTool(canvas, toolConfig, saveSnapshot, switchToSelect)
+    );
+    managers.toolManager.registerTool(
+      'ellipse',
+      new EllipseTool(canvas, toolConfig, saveSnapshot, switchToSelect)
+    );
+    managers.toolManager.registerTool(
+      'text',
+      new TextTool(canvas, toolConfig, saveSnapshot)
+    );
+    managers.toolManager.registerTool('pen', new PenTool(canvas, toolConfig, saveSnapshot));
+    managers.toolManager.registerTool(
+      'eraser',
+      new EraserTool(canvas, toolConfig, saveSnapshot)
+    );
+
+    // Get SelectTool instance for copySelectedRegion
+    selectTool = new SelectTool(canvas, toolConfig);
+    managers.toolManager.registerTool('select', selectTool);
+
+    // Store toolManager reference for config updates
+    toolManagerRef = managers.toolManager;
+
+    // Setup handlers
+    keyboardHandler = new KeyboardHandler(
+      managers.canvasManager,
+      managers.historyManager,
+      managers.toolManager,
+      {
+        onSave: () => {
+          // Trigger save dialog via custom event
+          window.dispatchEvent(new Event('save-canvas-shortcut'));
+        },
+        onBrushSizeChange: (delta: number) => {
+          const newWidth = toolbarStore.strokeWidth + delta;
+          toolbarStore.setStrokeWidth(Math.max(1, Math.min(20, newWidth)));
+        },
+        onDelete: () => {
+          // Check if SelectTool has a selection rectangle
+          if (selectTool) {
+            const selectionRect = selectTool.getSelectionRect();
+            if (selectionRect) {
+              deleteSelectedRegion();
+              return;
+            }
+          }
+          // Otherwise, delete selected objects
+          const activeObject = canvas.getActiveObject();
+          if (activeObject) {
+            canvas.remove(activeObject);
+            canvas.renderAll();
+            if (managers.historyManager) {
+              managers.historyManager.saveSnapshot();
+            }
+          }
+        },
+      }
+    );
+    keyboardHandler.attach();
+
+    clipboardHandler = new ClipboardHandler(managers.canvasManager, managers.historyManager, {
+      onPasteImage: () => {
+        toastStore.success('Image pasted');
+      },
+    });
+    clipboardHandler.attach();
+
+    dragDropHandler = new DragDropHandler(managers.canvasManager, managers.historyManager, {
+      onDropImage: () => {
+        toastStore.success('Image added');
+      },
+    });
+    dragDropHandler.attach(canvas.wrapperEl);
+
+    // Helper function to restore selection state after undo/redo
+    const restoreSelectionAfterHistoryNav = () => {
+      if (!canvas) return;
+
+      // Find all objects that are selectable (in this app, only active objects are selectable)
+      const selectableObjects = canvas.getObjects().filter((obj) => obj.selectable);
+
+      if (selectableObjects.length > 0) {
+        if (selectableObjects.length === 1) {
+          canvas.setActiveObject(selectableObjects[0]);
+        } else {
+          const selection = new fabric.ActiveSelection(selectableObjects, {
+            canvas: canvas,
+          });
+          canvas.setActiveObject(selection);
+        }
+        canvas.renderAll();
+      }
+    };
+
+    // Register undo/redo events to restore selection state
+    managers.historyManager.on('undo', () => {
+      restoreSelectionAfterHistoryNav();
+    });
+    managers.historyManager.on('redo', () => {
+      restoreSelectionAfterHistoryNav();
+    });
+
+    // Register selection:cleared event to make deselected objects non-selectable
+    canvas.on('selection:cleared', (e: fabric.IEvent) => {
+      if (managers.historyManager?.isRestoringSnapshot()) return; // Skip during undo/redo
+      if (managers.toolManager?.isDrawing()) return; // Skip while user is actively drawing
+
+      const deselected = (e as fabric.IEvent & { deselected?: fabric.Object[] }).deselected;
+      if (deselected && deselected.length > 0) {
+        // Make deselected objects non-selectable to prevent interference
+        // This ensures only newly drawn objects remain interactive until flattened
+        deselected.forEach((obj) => {
+          obj.set({
+            selectable: false,
+            evented: false,
+          });
+        });
+        canvas.renderAll();
+
+        // Save snapshot on deselection so undo can restore the selected state
+        managers.historyManager?.saveSnapshot();
+      }
+    });
+
+    // Register path:created event for pen and eraser tool - flatten immediately
+    canvas.on('path:created', (e: fabric.IEvent & { path?: fabric.Path }) => {
+      // Apply strokeUniform to the created path to prevent stroke width scaling
+      if (e.path) {
+        e.path.set({ strokeUniform: true });
+      }
+
+      // Flatten strokes immediately (no selection) and save snapshot after completion
+      setTimeout(() => {
+        flattenCanvasToBackground(() => {
+          if (managers.historyManager) {
+            managers.historyManager.saveSnapshot();
+          }
+        });
+      }, 50);
+    });
+
+    // Save initial empty canvas snapshot first
+    // This ensures we can undo back to a blank canvas
+    managers.historyManager.saveSnapshot();
+
+    // Load saved state (if exists)
+    await loadCanvasState();
+
+    // Save snapshot after loading auto-save state (if any was loaded)
+    // This creates a second snapshot with the loaded state
+    managers.historyManager.saveSnapshot();
+
+    // Setup auto-save
     setupAutoSave();
-  } else {
-    if (cleanupAutoSave) {
-      cleanupAutoSave();
-      cleanupAutoSave = null;
+
+    // Setup window resize handler
+    const handleResize = () => {
+      whiteboard.resize(window.innerWidth, window.innerHeight - 32);
+    };
+    window.addEventListener('resize', handleResize);
+
+    // Store handleResize for cleanup
+    interface WhiteboardWindow extends Window {
+      __whiteboardResizeHandler?: () => void;
+      getWhiteboardCanvas?: () => fabric.Canvas | null;
+      clearCanvas?: () => void;
+      getCanvasImage?: (format?: 'png' | 'jpeg') => string | null;
+      copySelectedRegion?: () => void;
+      deleteSelectedRegion?: () => void;
+    }
+    (window as WhiteboardWindow).__whiteboardResizeHandler = handleResize;
+
+    // Expose canvas methods for E2E testing
+    (window as WhiteboardWindow).getWhiteboardCanvas = () => canvas;
+    (window as WhiteboardWindow).clearCanvas = clearCanvas;
+    (window as WhiteboardWindow).getCanvasImage = getCanvasImage;
+    (window as WhiteboardWindow).copySelectedRegion = copySelectedRegion;
+    (window as WhiteboardWindow).deleteSelectedRegion = deleteSelectedRegion;
+
+    // Also expose fabricCanvas and historyManager directly for backward compatibility with E2E tests
+    (window as { fabricCanvas?: fabric.Canvas; historyManager?: typeof managers.historyManager }).fabricCanvas = canvas;
+    (window as { fabricCanvas?: fabric.Canvas; historyManager?: typeof managers.historyManager }).historyManager = managers.historyManager;
+
+    // Expose undo/redo state for E2E tests
+    (window as { undoRedoState?: { canUndo: typeof canUndo; canRedo: typeof canRedo } }).undoRedoState = {
+      canUndo,
+      canRedo
+    };
+  } catch (error) {
+    const msg = 'Failed to initialize whiteboard';
+    console.error(`${msg}:`, error);
+    toastStore.error(msg);
+  }
+}
+
+// Watch toolbar changes
+watch(
+  () => toolbarStore.currentTool,
+  (tool) => {
+    if (isReady.value) {
+      whiteboard.setTool(tool as ToolType);
+      updateCanvasCursor();
     }
   }
-});
+);
 
-// Expose methods and state to parent
-defineExpose({
-  clearCanvas,
-  getCanvasImage,
-  canUndoRef,
-  canRedoRef,
-});
+watch(
+  () => toolbarStore.color,
+  (color) => {
+    if (isReady.value && toolManagerRef) {
+      toolManagerRef.updateConfig({ color });
+    }
+  }
+);
 
+watch(
+  () => toolbarStore.strokeWidth,
+  (strokeWidth) => {
+    if (isReady.value && toolManagerRef) {
+      toolManagerRef.updateConfig({ strokeWidth });
+      // Update cursor for eraser when stroke width changes
+      if (toolbarStore.currentTool === 'eraser') {
+        updateCanvasCursor();
+      }
+    }
+  }
+);
+
+// Expose canvas loading state for E2E tests
+watch(
+  isReady,
+  (ready) => {
+    (window as { isCanvasLoading?: { value: boolean } }).isCanvasLoading = {
+      value: !ready
+    };
+  },
+  { immediate: true }
+);
+
+// Watch auto-save settings
+watch(
+  () => autoSaveStore.isEnabled,
+  (enabled) => {
+    if (enabled) {
+      setupAutoSave();
+    } else if (debouncedAutoSave) {
+      debouncedAutoSave.cancel();
+      debouncedAutoSave = null;
+    }
+  }
+);
+
+// Cleanup on unmount
 onBeforeUnmount(() => {
-  // Cleanup auto-save watcher
-  if (cleanupAutoSave) {
-    cleanupAutoSave();
-    cleanupAutoSave = null;
+  // Remove resize handler
+  interface WhiteboardWindow extends Window {
+    __whiteboardResizeHandler?: () => void;
+  }
+  const handleResize = (window as WhiteboardWindow).__whiteboardResizeHandler;
+  if (handleResize) {
+    window.removeEventListener('resize', handleResize);
+    delete (window as WhiteboardWindow).__whiteboardResizeHandler;
   }
 
-  // Perform final immediate auto-save
-  if (autoSaveStore.isEnabled && canvasManager) {
-    const canvasData = canvasManager.toJSON(['arrowId', 'selectable', 'evented']);
-    autoSaveStore.performAutoSaveImmediately(canvasData);
+  // Perform final auto-save
+  if (autoSaveStore.isEnabled && isReady.value) {
+    whiteboard.saveState().then((state) => {
+      const canvasData = JSON.parse(state);
+      autoSaveStore.performAutoSaveImmediately(canvasData);
+    });
   }
 
-  // Dispose HistoryManager
-  if (historyManager) {
-    historyManager.dispose();
-    historyManager = null;
-  }
-
-  // Detach handlers
-  if (keyboardHandler) { // Assuming keyboardHandler is accessible in this scope.
+  // Cleanup handlers
+  if (keyboardHandler) {
     keyboardHandler.detach();
+    keyboardHandler = null;
   }
   if (clipboardHandler) {
     clipboardHandler.detach();
+    clipboardHandler = null;
   }
   if (dragDropHandler) {
     dragDropHandler.detach();
+    dragDropHandler = null;
+  }
+  if (debouncedAutoSave) {
+    debouncedAutoSave.cancel();
+    debouncedAutoSave = null;
   }
 
-  if (fabricCanvas) {
-    const resizeHandler = fabricCanvas._resizeHandler;
+  // Cleanup whiteboard
+  whiteboard.cleanup();
+});
 
-    if (resizeHandler) {
-      window.removeEventListener('resize', resizeHandler);
-    }
+// Initialize on mount
+onMounted(async () => {
+  await initializeWhiteboard();
 
-    // Clean up shape drawing handlers
-    cleanupShapeEvents();
-
-    fabricCanvas.dispose();
-    fabricCanvas = null;
+  // Set initial tool
+  if (isReady.value && toolManagerRef) {
+    whiteboard.setTool(toolbarStore.currentTool as ToolType);
+    toolManagerRef.updateConfig({
+      color: toolbarStore.color,
+      strokeWidth: toolbarStore.strokeWidth,
+    });
+    // Set initial cursor
+    updateCanvasCursor();
   }
+});
+
+// Expose methods for parent component
+defineExpose({
+  clearCanvas,
+  getCanvasImage,
 });
 </script>
 
 <style scoped>
 .whiteboard-container {
-  width: 100vw;
-  height: calc(100vh - 88px); /* Subtract titlebar (32px) + toolbar (56px) */
-  margin-top: 88px; /* Titlebar + Toolbar height */
+  width: 100%;
+  height: 100%;
   overflow: hidden;
   position: relative;
 }

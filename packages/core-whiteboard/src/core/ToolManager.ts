@@ -69,6 +69,13 @@ export class ToolManager {
   }
 
   /**
+   * Get a registered tool by type
+   */
+  getTool(type: ToolType): Tool | undefined {
+    return this.tools.get(type);
+  }
+
+  /**
    * Check if the current tool is in a drawing state
    */
   isDrawing(): boolean {

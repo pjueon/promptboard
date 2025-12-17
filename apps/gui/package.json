@@ -22,9 +22,9 @@
     "promptboard": "./scripts/cli.mjs"
   },
   "scripts": {
-    "predev": "npm run build --prefix ../../packages/core-whiteboard",
+    "predev": "npm run build --prefix ../../packages/core-whiteboard && npm run build --prefix ../../packages/vue-whiteboard",
     "dev": "vite",
-    "prebuild": "npm run build --prefix ../../packages/core-whiteboard",
+    "prebuild": "npm run build --prefix ../../packages/core-whiteboard && npm run build --prefix ../../packages/vue-whiteboard",
     "build": "vite build && npm run build:mcp && npm run verify",
     "build:mcp": "node scripts/build-mcp.js",
     "verify": "node scripts/verify-build.js",
@@ -122,6 +122,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@promptboard/core-whiteboard": "*",
+    "@promptboard/vue-whiteboard": "*",
     "adm-zip": "^0.5.10",
     "ws": "^8.18.3"
   },

@@ -357,6 +357,34 @@ test.describe('Undo/Redo Functionality', () => {
     expect(historyState.canRedo).toBe(true);
   });
 
+  test('should undo deletion of an object', async () => {
+    // Draw a rectangle
+    await drawRectangle(page);
+    await page.waitForTimeout(500);
+
+    // Verify object exists
+    expect(await getCanvasObjectCount(page)).toBe(1);
+
+    // Delete the object (Rectangle is selected after draw)
+    await page.keyboard.press('Delete');
+    await page.waitForTimeout(500);
+
+    // Verify object is gone
+    expect(await getCanvasObjectCount(page)).toBe(0);
+
+    // Undo the deletion
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(500);
+
+    // Verify object is back
+    expect(await getCanvasObjectCount(page)).toBe(1);
+    
+    // Verify we can redo the deletion
+    await page.keyboard.press('Control+Shift+z');
+    await page.waitForTimeout(500);
+    expect(await getCanvasObjectCount(page)).toBe(0);
+  });
+
   test('should undo flatten and restore object', async () => {
     // Draw a rectangle
     await drawRectangle(page);

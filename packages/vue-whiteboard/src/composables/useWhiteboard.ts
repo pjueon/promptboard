@@ -90,7 +90,10 @@ export function useWhiteboard(): UseWhiteboardReturn {
     toolManager.registerTool('select', new SelectTool(canvas, toolOptions));
 
     // Initialize history manager
-    historyManager = new HistoryManager(canvasManager);
+    historyManager = new HistoryManager(canvasManager, {
+      maxHistory: 50,
+      propertiesToInclude: ['arrowId', 'selectable', 'evented'],
+    });
     historyManager.on('change', () => {
       canUndo.value = historyManager!.canUndo();
       canRedo.value = historyManager!.canRedo();
@@ -106,13 +109,8 @@ export function useWhiteboard(): UseWhiteboardReturn {
       }
     });
 
-    canvas.on('object:added', () => {
-      if (historyManager && !historyManager.isRestoringSnapshot()) {
-        setTimeout(() => {
-          historyManager!.saveSnapshot();
-        }, 10);
-      }
-    });
+    // Note: object:added is NOT used because tools handle snapshot saving
+    // via their onSnapshotSave callback after setting selectable: true
 
     isReady.value = true;
   }
@@ -285,6 +283,18 @@ export function useWhiteboard(): UseWhiteboardReturn {
     historyChangeHandlers.push(handler);
   }
 
+  /**
+   * Get internal managers (for advanced use cases like custom handlers)
+   * @internal
+   */
+  function getManagers() {
+    return {
+      canvasManager,
+      toolManager,
+      historyManager,
+    };
+  }
+
   return {
     // Canvas reference
     canvasRef,
@@ -320,5 +330,8 @@ export function useWhiteboard(): UseWhiteboardReturn {
     // Event handlers
     onToolChange,
     onHistoryChange,
+
+    // Internal managers (advanced use)
+    getManagers,
   };
 }

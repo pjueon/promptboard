@@ -1,6 +1,12 @@
 import type { Ref } from 'vue';
 import type { fabric } from 'fabric';
-import type { ToolType, ToolConfig } from '@promptboard/core-whiteboard';
+import type {
+  ToolType,
+  ToolConfig,
+  CanvasManager,
+  ToolManager,
+  HistoryManager,
+} from '@promptboard/core-whiteboard';
 
 /**
  * Configuration for useWhiteboard composable
@@ -49,6 +55,13 @@ export interface UseWhiteboardReturn {
   // Event handlers
   onToolChange: (handler: (tool: ToolType) => void) => void;
   onHistoryChange: (handler: () => void) => void;
+
+  // Internal managers (advanced use)
+  getManagers: () => {
+    canvasManager: CanvasManager | null;
+    toolManager: ToolManager | null;
+    historyManager: HistoryManager | null;
+  };
 }
 
 /**

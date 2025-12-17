@@ -218,7 +218,7 @@ describe('useWhiteboard', () => {
       const handler = vi.fn();
       onHistoryChange(handler);
 
-      // Trigger a history change by adding an object to the canvas
+      // Trigger a history change by adding and modifying an object
       const canvas = getCanvas();
       if (canvas) {
         const rect = new (window as any).fabric.Rect({
@@ -229,6 +229,11 @@ describe('useWhiteboard', () => {
           fill: 'red',
         });
         canvas.add(rect);
+        canvas.renderAll();
+
+        // Modify the object to trigger object:modified event
+        rect.set({ left: 150 });
+        canvas.fire('object:modified', { target: rect });
         canvas.renderAll();
 
         // Wait for the history manager to process the change
