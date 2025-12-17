@@ -313,6 +313,7 @@ apps/gui/src/renderer/stores/
 - [x] App.vue에 autoSaveStore 연동 및 props 전달
 - [x] App.vue 및 autoSaveStore 관련 기존 코드 제거
 - [x] App.vue 캔버스 리사이징 및 레이아웃 수정
+- [x] App.vue에 toolbarStore 연동 (툴 선택 및 설정 동기화)
 - [ ] E2E 테스트 업데이트
 
 ### PR 9: 최종 정리

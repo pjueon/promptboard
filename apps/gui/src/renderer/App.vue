@@ -13,6 +13,7 @@
         :height="canvasHeight"
         :auto-save-enabled="autoSaveStore.isEnabled"
         :auto-save-debounce-ms="autoSaveStore.debounceMs"
+        @ready="onCanvasReady"
       />
     </div>
     <AppSidebar
@@ -24,7 +25,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppTitlebar from './components/AppTitlebar.vue';
 import AppToolbar from './components/AppToolbar.vue';
@@ -33,10 +34,13 @@ import AppSidebar from './components/AppSidebar.vue';
 import ToastContainer from './components/ToastContainer.vue';
 import { useToastStore } from './stores/toastStore';
 import { useAutoSaveStore } from './stores/autoSaveStore';
+import { useToolbarStore } from './stores/toolbarStore';
+import type { ToolType } from '@promptboard/core-whiteboard';
 
 const { t } = useI18n();
 const toastStore = useToastStore();
 const autoSaveStore = useAutoSaveStore();
+const toolbarStore = useToolbarStore();
 const canvasRef = ref<InstanceType<typeof WhiteboardCanvas> | null>(null);
 const canvasContainerRef = ref<HTMLElement | null>(null);
 const isSidebarOpen = ref(false);
@@ -48,6 +52,36 @@ let resizeObserver: ResizeObserver | null = null;
 function handleClearAll() {
   canvasRef.value?.clearCanvas();
 }
+
+function onCanvasReady() {
+  if (canvasRef.value) {
+    // Set initial tool and options
+    canvasRef.value.setTool(toolbarStore.currentTool as ToolType);
+    canvasRef.value.setToolOptions({
+      color: toolbarStore.color,
+      strokeWidth: toolbarStore.strokeWidth,
+    });
+  }
+}
+
+// Watch for tool changes
+watch(
+  () => toolbarStore.currentTool,
+  (newTool) => {
+    canvasRef.value?.setTool(newTool as ToolType);
+  }
+);
+
+// Watch for property changes
+watch(
+  () => [toolbarStore.color, toolbarStore.strokeWidth],
+  ([newColor, newWidth]) => {
+    canvasRef.value?.setToolOptions({
+      color: newColor as string,
+      strokeWidth: newWidth as number,
+    });
+  }
+);
 
 async function handleSaveCanvas() {
   try {
