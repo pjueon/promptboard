@@ -111,6 +111,7 @@ defineExpose({
   saveState,
   loadState,
   clear,
+  clearCanvas: clear, // Alias for backward compatibility
 
   // Canvas access
   getCanvas,

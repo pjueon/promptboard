@@ -56,6 +56,32 @@ export const useAutoSaveStore = defineStore('autoSave', () => {
     }
   }
 
+  // Save whiteboard canvas state
+  async function saveWhiteboardState(canvasData: unknown) {
+    if (isElectron) {
+      try {
+        // Pass canvasData directly - Electron will wrap it with metadata
+        await window.electronAPI.whiteboard.saveState(canvasData);
+      } catch (error) {
+        console.error('Failed to save whiteboard state:', error);
+      }
+    }
+  }
+
+  // Load whiteboard canvas state
+  async function loadWhiteboardState() {
+    if (isElectron) {
+      try {
+        const state = await window.electronAPI.whiteboard.loadState();
+        return state;
+      } catch (error) {
+        console.error('Failed to load whiteboard state:', error);
+        return null;
+      }
+    }
+    return null;
+  }
+
   // Initialize settings asynchronously
   loadSettings();
 
@@ -69,5 +95,7 @@ export const useAutoSaveStore = defineStore('autoSave', () => {
     // Actions
     setAutoSave,
     setAutoSaveDebounce,
+    saveWhiteboardState,
+    loadWhiteboardState,
   };
 });

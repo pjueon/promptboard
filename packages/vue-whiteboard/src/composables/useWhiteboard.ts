@@ -133,14 +133,79 @@ export function useWhiteboard(): UseWhiteboardReturn {
           setToolOptions({ strokeWidth: newWidth });
         },
         onDelete: () => {
-          // If in select mode, we could delete regions if implemented
-          // For now, let default delete handler work or implement custom one
-          // KeyboardHandler calls handleDefaultDelete if onDelete is provided but does logic?
-          // Actually KeyboardHandler implementation calls onDelete IF provided, ELSE handleDefaultDelete.
-          // We want handleDefaultDelete, so we DON'T provide onDelete here unless we need specific logic.
-          // BUT, original app had logic for 'selectTool' region deletion.
-          // For now, let's omit onDelete to use default object deletion which works for basic objects.
-        }
+          // Check if SelectTool has a selection rectangle
+          const selectTool = toolManager?.getTool('select');
+          if (selectTool && typeof (selectTool as any).getSelectionRect === 'function') {
+            const selectionRect = (selectTool as any).getSelectionRect();
+            if (selectionRect) {
+              // Region selection exists - cover it with a white rectangle
+              const left = selectionRect.left!;
+              const top = selectionRect.top!;
+              const width = selectionRect.width!;
+              const height = selectionRect.height!;
+
+              // Skip if selection is too small
+              if (width < 1 || height < 1) {
+                // Just remove the selection rectangle
+                if (typeof (selectTool as any).removeSelectionRect === 'function') {
+                  (selectTool as any).removeSelectionRect();
+                }
+                canvas.renderAll();
+                return;
+              }
+
+              // Create a white rectangle to cover the selected area
+              const whiteRect = new fabric.Rect({
+                left: left,
+                top: top,
+                width: width,
+                height: height,
+                fill: '#ffffff',
+                selectable: false,
+                evented: false,
+              });
+
+              // Remove selection rectangle
+              if (typeof (selectTool as any).removeSelectionRect === 'function') {
+                (selectTool as any).removeSelectionRect();
+              }
+
+              // Add white rectangle to cover the area
+              canvas.add(whiteRect);
+              canvas.renderAll();
+              historyManager?.saveSnapshot();
+              return;
+            }
+          }
+
+          // No region selection - delete selected objects
+          const activeObject = canvas.getActiveObject();
+          if (!activeObject) return;
+
+          if (activeObject.type === 'activeSelection') {
+            // Handle group selection
+            (activeObject as fabric.ActiveSelection).getObjects().forEach((obj) => {
+              // @ts-expect-error - custom prop
+              const associatedHead = obj.arrowHead;
+              canvas.remove(obj);
+              if (associatedHead) {
+                canvas.remove(associatedHead);
+              }
+            });
+          } else {
+            // Handle single object selection
+            // @ts-expect-error - custom prop
+            const associatedHead = activeObject.arrowHead;
+            canvas.remove(activeObject);
+            if (associatedHead) {
+              canvas.remove(associatedHead);
+            }
+          }
+
+          canvas.discardActiveObject();
+          canvas.renderAll();
+          historyManager?.saveSnapshot();
+        },
       }
     );
     keyboardHandler.attach();
@@ -161,8 +226,17 @@ export function useWhiteboard(): UseWhiteboardReturn {
     }
 
     // Setup automatic snapshot saving on canvas changes
-    canvas.on('object:modified', () => {
+    canvas.on('object:modified', (e: fabric.IEvent) => {
       if (historyManager && !historyManager.isRestoringSnapshot()) {
+        // Skip if the modified object is a text being edited
+        const target = e.target;
+        if (target) {
+          // @ts-expect-error - custom property
+          if (target.isTextTool === true) {
+            return; // Text tool handles its own snapshot
+          }
+        }
+
         setTimeout(() => {
           historyManager!.saveSnapshot();
         }, 10);
@@ -171,6 +245,90 @@ export function useWhiteboard(): UseWhiteboardReturn {
 
     // Note: object:added is NOT used because tools handle snapshot saving
     // via their onSnapshotSave callback after setting selectable: true
+
+    // Setup path:created event for pen and eraser tools
+    canvas.on('path:created', (e: fabric.IEvent & { path?: fabric.Path }) => {
+      if (!e.path) return;
+
+      // Apply strokeUniform to prevent stroke width scaling
+      // Keep path non-selectable to match flattened behavior
+      e.path.set({
+        strokeUniform: true,
+        selectable: false,
+        evented: false,
+      });
+
+      canvas.renderAll();
+
+      // Save snapshot after path is created (without selection)
+      setTimeout(() => {
+        if (historyManager && !historyManager.isRestoringSnapshot()) {
+          historyManager.saveSnapshot();
+        }
+      }, 50);
+    });
+
+    // Helper function to restore selection state after undo/redo
+    const restoreSelectionAfterHistoryNav = () => {
+      if (!canvas) return;
+
+      // Find all objects that are selectable (only active objects are selectable)
+      const selectableObjects = canvas.getObjects().filter((obj) => obj.selectable);
+
+      if (selectableObjects.length > 0) {
+        if (selectableObjects.length === 1) {
+          canvas.setActiveObject(selectableObjects[0]);
+        } else {
+          const selection = new fabric.ActiveSelection(selectableObjects, {
+            canvas: canvas,
+          });
+          canvas.setActiveObject(selection);
+        }
+        canvas.renderAll();
+      }
+    };
+
+    // Register undo/redo events to restore selection state
+    historyManager.on('undo', () => {
+      restoreSelectionAfterHistoryNav();
+    });
+    historyManager.on('redo', () => {
+      restoreSelectionAfterHistoryNav();
+    });
+
+    // Register selection:cleared event to make deselected objects non-selectable
+    canvas.on('selection:cleared', (e: fabric.IEvent) => {
+      if (historyManager?.isRestoringSnapshot()) return; // Skip during undo/redo
+      if (toolManager?.isDrawing()) return; // Skip while user is actively drawing
+
+      const deselected = (e as fabric.IEvent & { deselected?: fabric.Object[] }).deselected;
+      if (deselected && deselected.length > 0) {
+        // Check if any deselected object is a text being edited
+        const hasTextToolObject = deselected.some((obj) => {
+          // @ts-expect-error - custom property
+          return obj.isTextTool === true;
+        });
+
+        // Skip snapshot if text tool object is being deselected
+        // (text tool handles its own snapshot on editing:exited)
+        if (hasTextToolObject) {
+          return;
+        }
+
+        // Make deselected objects non-selectable to prevent interference
+        // This ensures only newly drawn objects remain interactive until flattened
+        deselected.forEach((obj) => {
+          obj.set({
+            selectable: false,
+            evented: false,
+          });
+        });
+        canvas.renderAll();
+
+        // Save snapshot on deselection so undo can restore the selected state
+        historyManager?.saveSnapshot();
+      }
+    });
 
     isReady.value = true;
   }
@@ -305,8 +463,9 @@ export function useWhiteboard(): UseWhiteboardReturn {
     canvas.clear();
     canvas.renderAll();
 
-    if (historyManager) {
-      historyManager.clear();
+    // Save snapshot after clearing so undo can restore
+    if (historyManager && !historyManager.isRestoringSnapshot()) {
+      historyManager.saveSnapshot();
     }
   }
 

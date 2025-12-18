@@ -77,6 +77,9 @@ export class TextTool extends Tool {
       fill: this.config.color,
       fontSize: this.config.fontSize || 20,
       fontFamily: 'Arial',
+      // Mark as text object for special handling in selection:cleared
+      // @ts-expect-error - custom property
+      isTextTool: true,
     });
 
     // Add to canvas
@@ -89,10 +92,22 @@ export class TextTool extends Tool {
 
     // Save snapshot when editing exits
     text.on('editing:exited', () => {
+      // Make text non-selectable to prevent it from being selected again
+      // This prevents selection:cleared event from firing when user clicks elsewhere
+      text.set({
+        selectable: false,
+        evented: false,
+      });
+
       // Use setTimeout to ensure the text is finalized before saving
       setTimeout(() => {
+        // Remove the marker AFTER all event handlers have processed
+        // This ensures object:modified and selection:cleared can skip this text
+        // @ts-expect-error - custom property
+        delete text.isTextTool;
+
         this.saveSnapshot();
-      }, 100);
+      }, 50);
     });
 
     this.canvas.renderAll();
