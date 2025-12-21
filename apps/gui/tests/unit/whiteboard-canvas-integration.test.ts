@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import WhiteboardCanvas from '../../src/renderer/components/WhiteboardCanvas.vue';
+import { WhiteboardCanvas } from '@promptboard/vue-whiteboard';
 import { useToolbarStore } from '../../src/renderer/stores/toolbarStore';
 
 describe('WhiteboardCanvas - Toolbar Integration', () => {
@@ -84,7 +84,7 @@ describe('WhiteboardCanvas - Toolbar Integration', () => {
 
   describe('Component Lifecycle', () => {
     it('should render canvas element', () => {
-      const canvas = wrapper.find('#whiteboard-canvas');
+      const canvas = wrapper.find('canvas');
       expect(canvas.exists()).toBe(true);
       expect(canvas.element.tagName).toBe('CANVAS');
     });

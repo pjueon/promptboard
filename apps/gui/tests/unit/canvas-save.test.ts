@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mount, VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import WhiteboardCanvas from '../../src/renderer/components/WhiteboardCanvas.vue';
+import { WhiteboardCanvas } from '@promptboard/vue-whiteboard';
 
 describe('WhiteboardCanvas - Save Functionality', () => {
   let wrapper: VueWrapper;
@@ -26,14 +26,16 @@ describe('WhiteboardCanvas - Save Functionality', () => {
 
   describe('getCanvasImage', () => {
     it('should return base64 PNG image', () => {
-      const canvasImage = wrapper.vm.getCanvasImage();
+      const canvas = wrapper.vm.getCanvas();
+      const canvasImage = canvas?.toDataURL('image/png').split(',')[1];
 
       expect(canvasImage).toBeDefined();
       expect(typeof canvasImage).toBe('string');
     });
 
     it('should return valid base64 string without data URL prefix', () => {
-      const canvasImage = wrapper.vm.getCanvasImage();
+      const canvas = wrapper.vm.getCanvas();
+      const canvasImage = canvas?.toDataURL('image/png').split(',')[1];
 
       if (canvasImage) {
         // Should not contain data URL prefix
@@ -58,7 +60,8 @@ describe('WhiteboardCanvas - Save Functionality', () => {
     });
 
     it('should return decodable base64 data', () => {
-      const canvasImage = wrapper.vm.getCanvasImage();
+      const canvas = wrapper.vm.getCanvas();
+      const canvasImage = canvas?.toDataURL('image/png').split(',')[1];
 
       if (canvasImage && canvasImage !== '....') {
         // Try to decode - should not throw
@@ -82,17 +85,19 @@ describe('WhiteboardCanvas - Save Functionality', () => {
       });
 
       // Call before mounted hook completes
-      const result = newWrapper.vm.getCanvasImage();
+      const canvas = newWrapper.vm.getCanvas();
+      const result = canvas?.toDataURL('image/png').split(',')[1];
 
       // Should handle gracefully
-      expect(result === null || typeof result === 'string').toBe(true);
+      expect(result === null || result === undefined || typeof result === 'string').toBe(true);
 
       newWrapper.unmount();
     });
 
     it('should return consistent format for empty canvas', () => {
-      const image1 = wrapper.vm.getCanvasImage();
-      const image2 = wrapper.vm.getCanvasImage();
+      const canvas = wrapper.vm.getCanvas();
+      const image1 = canvas?.toDataURL('image/png').split(',')[1];
+      const image2 = canvas?.toDataURL('image/png').split(',')[1];
 
       expect(image1).toBeDefined();
       expect(image2).toBeDefined();
@@ -112,10 +117,11 @@ describe('WhiteboardCanvas - Save Functionality', () => {
       await wrapper.vm.$nextTick();
 
       // Get initial image
-      const initialImage = wrapper.vm.getCanvasImage();
+      const canvas = wrapper.vm.getCanvas();
+      const initialImage = canvas?.toDataURL('image/png').split(',')[1];
 
       // Get image again
-      const secondImage = wrapper.vm.getCanvasImage();
+      const secondImage = canvas?.toDataURL('image/png').split(',')[1];
 
       // Both should be defined and equal (canvas not modified)
       expect(initialImage).toBeDefined();
@@ -123,13 +129,14 @@ describe('WhiteboardCanvas - Save Functionality', () => {
     });
 
     it('should not modify fabricCanvas during image export', () => {
-      const canvasBefore = wrapper.vm.getCanvasImage();
+      const canvas = wrapper.vm.getCanvas();
+      const canvasBefore = canvas?.toDataURL('image/png').split(',')[1];
 
       // Perform some operations that shouldn't affect the canvas
-      wrapper.vm.getCanvasImage();
-      wrapper.vm.getCanvasImage();
+      canvas?.toDataURL('image/png').split(',')[1];
+      canvas?.toDataURL('image/png').split(',')[1];
 
-      const canvasAfter = wrapper.vm.getCanvasImage();
+      const canvasAfter = canvas?.toDataURL('image/png').split(',')[1];
 
       expect(canvasBefore).toBeDefined();
       expect(canvasAfter).toBeDefined();

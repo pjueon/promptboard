@@ -8,7 +8,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, watch } from 'vue';
 import { useWhiteboard } from '../composables/useWhiteboard';
-import type { ToolType } from '@promptboard/core-whiteboard';
+import type { ToolType, ToolConfig } from '@promptboard/core-whiteboard';
 
 interface Props {
   width?: number;
@@ -26,6 +26,7 @@ const emit = defineEmits<{
   ready: [];
   toolChange: [tool: ToolType];
   historyChange: [];
+  toolOptionsChange: [options: ToolConfig];
 }>();
 
 const {
@@ -48,6 +49,7 @@ const {
   resize,
   onToolChange,
   onHistoryChange,
+  onToolOptionsChange,
   getManagers,
 } = useWhiteboard();
 
@@ -88,6 +90,10 @@ onToolChange((tool) => {
 
 onHistoryChange(() => {
   emit('historyChange');
+});
+
+onToolOptionsChange((options) => {
+  emit('toolOptionsChange', options);
 });
 
 // Expose methods and state

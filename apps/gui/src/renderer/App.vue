@@ -19,6 +19,7 @@
         @ready="onCanvasReady"
         @history-change="onHistoryChange"
         @tool-change="onToolChange"
+        @tool-options-change="onToolOptionsChange"
       />
     </div>
     <AppSidebar
@@ -30,7 +31,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppTitlebar from './components/AppTitlebar.vue';
 import AppToolbar from './components/AppToolbar.vue';
@@ -83,6 +84,13 @@ function setupAutoSave() {
  * Handle history change event (triggered by canvas changes)
  */
 function onHistoryChange() {
+  // Update undo/redo state for E2E tests
+  if (canvasRef.value && (window as any).undoRedoState) {
+    const state = (window as any).undoRedoState;
+    state.canUndo.value = canvasRef.value.canUndo.value;
+    state.canRedo.value = canvasRef.value.canRedo.value;
+  }
+
   // Don't trigger auto-save during initial load
   if (isLoadingState) {
     return;
@@ -155,12 +163,24 @@ async function onCanvasReady() {
       (window as Record<string, unknown>).historyManager = managers.historyManager;
     }
 
-    (window as Record<string, unknown>).undoRedoState = {
-      canUndo: canvasRef.value.canUndo,
-      canRedo: canvasRef.value.canRedo
+    (window as Record<string, unknown>).isCanvasLoading = { value: false };
+    (window as Record<string, unknown>).toolbarStore = toolbarStore;
+
+    // Initialize undo/redo state object (compatible with test expectations)
+    (window as any).undoRedoState = {
+      canUndo: { value: false },
+      canRedo: { value: false }
     };
 
-    (window as Record<string, unknown>).isCanvasLoading = { value: false };
+    // Wait for next tick to ensure all events have been processed
+    await nextTick();
+
+    // Manually trigger initial undoRedoState update
+    if (canvasRef.value) {
+      const state = (window as any).undoRedoState;
+      state.canUndo.value = canvasRef.value.canUndo.value;
+      state.canRedo.value = canvasRef.value.canRedo.value;
+    }
   }
 }
 
@@ -170,6 +190,21 @@ async function onCanvasReady() {
 function onToolChange(tool: ToolType) {
   toolbarStore.setTool(tool);
   updateCanvasCursor(tool);
+}
+
+/**
+ * Handle tool options change event from canvas (e.g., from keyboard shortcuts)
+ */
+function onToolOptionsChange(options: { color?: string; strokeWidth?: number; fontSize?: number }) {
+  if (options.color !== undefined) {
+    toolbarStore.setColor(options.color);
+  }
+  if (options.strokeWidth !== undefined) {
+    toolbarStore.setStrokeWidth(options.strokeWidth);
+  }
+  if (options.fontSize !== undefined) {
+    toolbarStore.setFontSize(options.fontSize);
+  }
 }
 
 /**

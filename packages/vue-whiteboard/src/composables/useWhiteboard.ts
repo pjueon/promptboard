@@ -55,6 +55,7 @@ export function useWhiteboard(): UseWhiteboardReturn {
   // Event handlers
   const toolChangeHandlers: Array<(tool: ToolType) => void> = [];
   const historyChangeHandlers: Array<() => void> = [];
+  const toolOptionsChangeHandlers: Array<(options: ToolConfig) => void> = [];
 
   /**
    * Register custom Fabric.js objects
@@ -392,6 +393,9 @@ export function useWhiteboard(): UseWhiteboardReturn {
     if (toolManager) {
       toolManager.updateConfig(options);
     }
+
+    // Notify listeners
+    toolOptionsChangeHandlers.forEach((handler) => handler(toolOptions));
   }
 
   /**
@@ -502,6 +506,13 @@ export function useWhiteboard(): UseWhiteboardReturn {
   }
 
   /**
+   * Register a tool options change handler
+   */
+  function onToolOptionsChange(handler: (options: ToolConfig) => void): void {
+    toolOptionsChangeHandlers.push(handler);
+  }
+
+  /**
    * Get internal managers (for advanced use cases like custom handlers)
    * @internal
    */
@@ -548,6 +559,7 @@ export function useWhiteboard(): UseWhiteboardReturn {
     // Event handlers
     onToolChange,
     onHistoryChange,
+    onToolOptionsChange,
 
     // Internal managers (advanced use)
     getManagers,
