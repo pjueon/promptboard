@@ -46,6 +46,7 @@ const {
   loadState,
   clear,
   getCanvas,
+  getCanvasImage,
   resize,
   onToolChange,
   onHistoryChange,
@@ -121,6 +122,7 @@ defineExpose({
 
   // Canvas access
   getCanvas,
+  getCanvasImage,
   resize,
   getManagers,
 });

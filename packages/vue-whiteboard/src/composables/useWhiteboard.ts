@@ -481,6 +481,17 @@ export function useWhiteboard(): UseWhiteboardReturn {
   }
 
   /**
+   * Get canvas as base64 image (without data URL prefix)
+   * For backward compatibility with save/load functionality
+   */
+  function getCanvasImage(): string | null {
+    const canvas = getCanvas();
+    if (!canvas) return null;
+    const dataURL = canvas.toDataURL('image/png');
+    return dataURL.split(',')[1]; // Return base64 without prefix
+  }
+
+  /**
    * Resize the canvas
    */
   function resize(width: number, height: number): void {
@@ -554,6 +565,7 @@ export function useWhiteboard(): UseWhiteboardReturn {
 
     // Canvas access
     getCanvas,
+    getCanvasImage,
     resize,
 
     // Event handlers
